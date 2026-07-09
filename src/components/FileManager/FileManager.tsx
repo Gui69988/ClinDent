@@ -38,13 +38,21 @@ interface LocalFile {
   fileDataUrl?: string; // Simulated base64 data for local recall
 }
 
+const FOLDERS_CONFIG = [
+  { id: 'radiografias', label: 'Radiografias (RX)', iconColor: 'bg-blue-50 text-blue-600', folderPathName: 'Radiografias' },
+  { id: 'gto', label: "Gto's (Guias de Convênio)", iconColor: 'bg-amber-50 text-amber-600', folderPathName: "Gto's" },
+  { id: 'pessoais', label: 'Exames e Laudos', iconColor: 'bg-indigo-50 text-indigo-600', folderPathName: 'Exames' },
+  { id: 'antes_depois', label: 'Estética do Sorriso', iconColor: 'bg-emerald-50 text-emerald-600', folderPathName: 'Estética_do_Sorriso' },
+  { id: 'contratos', label: 'Contratos e Termos', iconColor: 'bg-purple-50 text-purple-600', folderPathName: 'Contratos' },
+];
+
 type FileCategory = 'pacientes' | 'agenda' | 'financeiro' | 'estoque' | 'auditoria';
 
 export default function FileManager() {
-  const { patients, logAction } = useDental();
+  const { patients, logAction, documents, addDocument, deleteDocument } = useDental();
   const [activeCategory, setActiveCategory] = useState<FileCategory>('pacientes');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  const [activeFolder, setActiveFolder] = useState<'RX' | 'Gto\'s' | 'Ficha do Paciente' | 'Gerais' | null>(null);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Real or simulated local storage root directory path
@@ -56,49 +64,49 @@ export default function FileManager() {
     return localStorage.getItem('clindent_local_root_linked') === 'true';
   });
 
-  // Local files stored in localStorage to simulate real computer storage persistence
-  const [files, setFiles] = useState<LocalFile[]>(() => {
-    const saved = localStorage.getItem('clindent_local_files_db');
+  // Local files stored in localStorage for general non-patient modules
+  const [generalFiles, setGeneralFiles] = useState<LocalFile[]>(() => {
+    const saved = localStorage.getItem('clindent_local_general_files');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        // Map old data structure if needed
-        return parsed.map((f: any) => ({
-          ...f,
-          category: f.category || 'pacientes',
-          folderName: f.folderName || 'Gerais'
-        }));
+        return JSON.parse(saved);
       } catch (e) {
         return [];
       }
     }
-    // Seed default files for all categories
+    // Seed default non-patient files
     return [
-      { id: 'f1', patientId: 'p_1', category: 'pacientes', folderName: 'RX', fileName: 'panoramica_inicial_arthur.png', fileSize: '1.2 MB', uploadedAt: '2026-07-08' },
-      { id: 'f2', patientId: 'p_1', category: 'pacientes', folderName: 'Gto\'s', fileName: 'gto_guia_amil_9281.pdf', fileSize: '340 KB', uploadedAt: '2026-07-09' },
-      { id: 'f3', patientId: 'p_1', category: 'pacientes', folderName: 'Ficha do Paciente', fileName: 'anamnese_assinada.pdf', fileSize: '180 KB', uploadedAt: '2026-07-05' },
-      
-      // Agenda Category files
       { id: 'f4', category: 'agenda', folderName: 'Agenda', fileName: 'agenda_geral_2026.json', fileSize: '35 KB', uploadedAt: '2026-07-09' },
       { id: 'f5', category: 'agenda', folderName: 'Agenda', fileName: 'grade_horarios_dentistas.xml', fileSize: '12 KB', uploadedAt: '2026-07-08' },
-      
-      // Financeiro Category files
       { id: 'f6', category: 'financeiro', folderName: 'Financeiro', fileName: 'fechamento_caixa_mensal.xlsx', fileSize: '1.4 MB', uploadedAt: '2026-07-09' },
       { id: 'f7', category: 'financeiro', folderName: 'Financeiro', fileName: 'fluxo_de_caixa_projetado.csv', fileSize: '180 KB', uploadedAt: '2026-07-07' },
-      
-      // Estoque Category files
       { id: 'f8', category: 'estoque', folderName: 'Estoque', fileName: 'inventario_insumos_materiais.xlsx', fileSize: '450 KB', uploadedAt: '2026-07-09' },
       { id: 'f9', category: 'estoque', folderName: 'Estoque', fileName: 'pedidos_compra_fornecedores.pdf', fileSize: '1.2 MB', uploadedAt: '2026-07-08' },
-      
-      // Auditoria Category files
       { id: 'f10', category: 'auditoria', folderName: 'Auditoria', fileName: 'logs_seguranca_lgpd.log', fileSize: '250 KB', uploadedAt: '2026-07-09' },
       { id: 'f11', category: 'auditoria', folderName: 'Auditoria', fileName: 'backup_criptografado_seguro.bin', fileSize: '18.5 MB', uploadedAt: '2026-07-09' }
     ];
   });
 
   useEffect(() => {
-    localStorage.setItem('clindent_local_files_db', JSON.stringify(files));
-  }, [files]);
+    localStorage.setItem('clindent_local_general_files', JSON.stringify(generalFiles));
+  }, [generalFiles]);
+
+  // Map our rich context documents dynamically into LocalFile objects
+  const patientFiles: LocalFile[] = documents.map(doc => {
+    return {
+      id: doc.id,
+      patientId: doc.patientId,
+      category: 'pacientes',
+      folderName: doc.category, // Use category ID as folderName to match selected activeFolder
+      fileName: doc.name,
+      fileSize: doc.fileSize,
+      uploadedAt: doc.uploadedAt.split('T')[0],
+      fileDataUrl: doc.url
+    };
+  });
+
+  // Combined virtual files database for count badges
+  const files = [...generalFiles, ...patientFiles];
 
   const handleLinkLocalFolder = async () => {
     if ('showDirectoryPicker' in window) {
@@ -117,7 +125,16 @@ export default function FileManager() {
         alert("Não foi possível acessar a pasta selecionada. O navegador pode ter cancelado a operação ou a pasta não possui as permissões necessárias.");
       }
     } else {
-      alert("Seu navegador atual não suporta a funcionalidade de acesso direto ao sistema de arquivos (necessário o uso de navegadores modernos como Chrome ou Edge).");
+      // Fallback manual input for absolute security or compatibility with browsers inside iframe
+      const customPath = prompt("Digite o caminho de diretório local que deseja simular e vincular:", rootPath);
+      if (customPath) {
+        setRootPath(customPath);
+        setIsLinked(true);
+        localStorage.setItem('clindent_local_root_path', customPath);
+        localStorage.setItem('clindent_local_root_linked', 'true');
+        logAction('link_local_folder', `Pasta local vinculada manualmente: ${customPath}`);
+        alert(`Sucesso! A pasta de armazenamento local foi vinculada para: \n${customPath}`);
+      }
     }
   };
 
@@ -146,38 +163,67 @@ export default function FileManager() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const newFile: LocalFile = {
-        id: 'file_' + Date.now(),
-        patientId: activeCategory === 'pacientes' ? selectedPatientId : undefined,
-        category: activeCategory,
-        folderName: activeCategory === 'pacientes' ? activeFolder! : activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1),
-        fileName: uploadedFile.name,
-        fileSize: (uploadedFile.size / 1024).toFixed(0) + ' KB',
-        uploadedAt: new Date().toISOString().split('T')[0],
-        fileDataUrl: event.target?.result as string
-      };
+      const dataUrl = event.target?.result as string;
+      const sizeStr = uploadedFile.size >= 1024 * 1024
+        ? `${(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${(uploadedFile.size / 1024).toFixed(0)} KB`;
 
-      setFiles(prev => [newFile, ...prev]);
-      logAction('local_file_upload', `Importou arquivo do computador "${uploadedFile.name}" para a pasta local "${newFile.folderName}" em ${activeCategory}.`);
-      alert(`Arquivo "${uploadedFile.name}" importado do computador e salvo na pasta local com sucesso!`);
+      if (activeCategory === 'pacientes') {
+        // Save dynamically into the universal patient document manager
+        addDocument(
+          selectedPatientId,
+          uploadedFile.name,
+          activeFolder as any,
+          dataUrl,
+          sizeStr,
+          `Importado via Gerenciador de Armazenamento para a pasta local`
+        );
+        logAction('local_file_upload', `Importou arquivo do computador "${uploadedFile.name}" para a pasta local "${activeFolder}" em pacientes.`);
+        alert(`Arquivo "${uploadedFile.name}" importado e sincronizado com sucesso na pasta local!`);
+      } else {
+        const newFile: LocalFile = {
+          id: 'file_' + Date.now(),
+          category: activeCategory,
+          folderName: activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1),
+          fileName: uploadedFile.name,
+          fileSize: sizeStr,
+          uploadedAt: new Date().toISOString().split('T')[0],
+          fileDataUrl: dataUrl
+        };
+        setGeneralFiles(prev => [newFile, ...prev]);
+        logAction('local_file_upload', `Importou arquivo do computador "${uploadedFile.name}" para a pasta local "${newFile.folderName}" em ${activeCategory}.`);
+        alert(`Arquivo "${uploadedFile.name}" importado do computador e salvo na pasta local com sucesso!`);
+      }
     };
     reader.readAsDataURL(uploadedFile);
   };
 
   const handleDeleteFile = (id: string, name: string) => {
     if (confirm(`Tem certeza que deseja excluir o arquivo "${name}" desta pasta local?`)) {
-      setFiles(prev => prev.filter(f => f.id !== id));
-      logAction('local_file_delete', `Excluiu o arquivo local "${name}" da pasta.`);
+      if (activeCategory === 'pacientes') {
+        deleteDocument(id);
+        logAction('local_file_delete', `Excluiu o arquivo local "${name}" da pasta.`);
+      } else {
+        setGeneralFiles(prev => prev.filter(f => f.id !== id));
+        logAction('local_file_delete', `Excluiu o arquivo local "${name}" da pasta.`);
+      }
     }
   };
 
   // Helper to get formatted Windows path for the patient
-  const getPatientPath = (patientName: string) => {
+  const getPatientPath = (patientId: string, patientName: string) => {
     const safeName = patientName
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // remove accents
       .replace(/[^a-zA-Z0-9]/g, "_"); // replace spaces and symbols
-    return `${rootPath}\\Pacientes\\${safeName}`;
+    return `${rootPath}\\Pacientes\\${patientId}_${safeName}`;
+  };
+
+  const getPatientFolderPath = (patientId: string, patientName: string, folderId: string) => {
+    const patientPath = getPatientPath(patientId, patientName);
+    const config = FOLDERS_CONFIG.find(c => c.id === folderId);
+    const folderName = config ? config.folderPathName : folderId;
+    return `${patientPath}\\${folderName}`;
   };
 
   const getCategoryPath = (cat: FileCategory) => {
@@ -295,7 +341,7 @@ export default function FileManager() {
               {filteredPatients.length > 0 ? (
                 filteredPatients.map(p => {
                   const isSelected = p.id === selectedPatientId;
-                  const pathStr = getPatientPath(p.name);
+                  const pathStr = getPatientPath(p.id, p.name);
                   return (
                     <button
                       key={p.id}
@@ -374,84 +420,37 @@ export default function FileManager() {
                 <div className="border-b border-slate-100 pb-3">
                   <h3 className="font-bold text-slate-800 text-xs">Caminho de Diretório Clínico do Paciente</h3>
                   <p className="text-xs text-slate-500 font-mono mt-1 bg-slate-50 p-2 border border-slate-150 rounded-lg">
-                    {getPatientPath(activePatient.name)}
+                    {getPatientPath(activePatient.id, activePatient.name)}
                   </p>
                 </div>
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">Sub-Pastas de Prontuário</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Folder 1: RX */}
-                    <button 
-                      onClick={() => setActiveFolder('RX')}
-                      className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-slate-50/50 rounded-xl text-left transition-all group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:scale-105 transition-transform">
-                          <Folder className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-700">RX (Radiografias)</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {files.filter(f => f.patientId === selectedPatientId && f.folderName === 'RX' && f.category === 'pacientes').length} arquivos salvos
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Folder 2: Gto's */}
-                    <button 
-                      onClick={() => setActiveFolder('Gto\'s')}
-                      className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-slate-50/50 rounded-xl text-left transition-all group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-amber-50 text-amber-600 rounded-lg group-hover:scale-105 transition-transform">
-                          <Folder className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-700">Gto's (Guias de Convênio)</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {files.filter(f => f.patientId === selectedPatientId && f.folderName === 'Gto\'s' && f.category === 'pacientes').length} arquivos salvos
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Folder 3: Ficha do Paciente */}
-                    <button 
-                      onClick={() => setActiveFolder('Ficha do Paciente')}
-                      className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-slate-50/50 rounded-xl text-left transition-all group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:scale-105 transition-transform">
-                          <Folder className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-700">Ficha do Paciente</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {files.filter(f => f.patientId === selectedPatientId && f.folderName === 'Ficha do Paciente' && f.category === 'pacientes').length} arquivos salvos
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Folder 4: Gerais */}
-                    <button 
-                      onClick={() => setActiveFolder('Gerais')}
-                      className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-slate-50/50 rounded-xl text-left transition-all group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-slate-50 text-slate-600 rounded-lg group-hover:scale-105 transition-transform">
-                          <Folder className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-700">Documentos Gerais</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {files.filter(f => f.patientId === selectedPatientId && f.folderName === 'Gerais' && f.category === 'pacientes').length} arquivos salvos
-                          </p>
-                        </div>
-                      </div>
-                    </button>
+                    {FOLDERS_CONFIG.map((folder) => {
+                      const filesInFolder = patientFiles.filter(
+                        f => f.patientId === selectedPatientId && f.folderName === folder.id
+                      );
+                      return (
+                        <button 
+                          key={folder.id}
+                          onClick={() => setActiveFolder(folder.id)}
+                          className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-slate-50/50 rounded-xl text-left transition-all group"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-2 rounded-lg ${folder.iconColor} group-hover:scale-105 transition-transform`}>
+                              <Folder className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">{folder.label}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                {filesInFolder.length} arquivos salvos
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -461,12 +460,14 @@ export default function FileManager() {
                   <div className="text-[11px] text-slate-500 leading-normal">
                     <p className="font-bold text-slate-700">Organização Recomendada de Pastas:</p>
                     <p className="mt-1">
-                      Para sincronizar com as pastas locais de seu computador, mantenha o seguinte padrão de subdiretórios dentro da pasta de cada paciente:
+                      Para sincronizar com as pastas locais de seu computador, o ClinDent lê e gerencia automaticamente as seguintes subpastas criadas na pasta física do paciente:
                     </p>
                     <ul className="list-disc list-inside mt-1.5 space-y-1 font-mono text-[10px] text-slate-600">
-                      <li>..\Pacientes\Nome_Do_Paciente\<span className="font-bold text-slate-800">RX</span> (Radiografias e imagens)</li>
-                      <li>..\Pacientes\Nome_Do_Paciente\<span className="font-bold text-slate-800">Gto's</span> (Guias de faturamento)</li>
-                      <li>..\Pacientes\Nome_Do_Paciente\<span className="font-bold text-slate-800">Ficha do Paciente</span> (Fichas e termos assinados)</li>
+                      {FOLDERS_CONFIG.map(folder => (
+                        <li key={folder.id}>
+                          ..\Pacientes\ID_Nome_Do_Paciente\<span className="font-bold text-slate-800">{folder.folderPathName}</span> ({folder.label})
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 </div>
@@ -486,10 +487,10 @@ export default function FileManager() {
                   <div className="border-b border-slate-150 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <h3 className="font-bold text-slate-800 text-xs">
-                        Paciente: {activePatient.name} &gt; Pasta <span className="text-teal-600">"{activeFolder}"</span>
+                        Paciente: {activePatient.name} &gt; Pasta <span className="text-teal-600">"{FOLDERS_CONFIG.find(f => f.id === activeFolder)?.label || activeFolder}"</span>
                       </h3>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        Diretório Físico: {getPatientPath(activePatient.name)}\{activeFolder}
+                        Diretório Físico: {getPatientFolderPath(activePatient.id, activePatient.name, activeFolder)}
                       </p>
                     </div>
 
@@ -505,11 +506,11 @@ export default function FileManager() {
                   </div>
 
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-1">
-                    {files.filter(f => f.patientId === selectedPatientId && f.folderName === activeFolder && f.category === 'pacientes').length > 0 ? (
-                      files
-                        .filter(f => f.patientId === selectedPatientId && f.folderName === activeFolder && f.category === 'pacientes')
+                    {patientFiles.filter(f => f.patientId === selectedPatientId && f.folderName === activeFolder).length > 0 ? (
+                      patientFiles
+                        .filter(f => f.patientId === selectedPatientId && f.folderName === activeFolder)
                         .map(file => {
-                          const isImage = file.fileName.match(/\.(jpeg|jpg|gif|png)$/i);
+                          const isImage = file.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i);
                           return (
                             <div 
                               key={file.id} 
@@ -574,7 +575,7 @@ export default function FileManager() {
                     Abra o Windows Explorer e crie esta estrutura física de pastas. O ClinDent fará a leitura e resgate automático ao navegar por este painel:
                   </p>
                   <div className="mt-2 p-2 bg-white/75 font-mono text-[9px] rounded border border-amber-100 select-all text-slate-700">
-                    mkdir "{getPatientPath(activePatient.name)}\{activeFolder}"
+                    mkdir "{getPatientFolderPath(activePatient.id, activePatient.name, activeFolder)}"
                   </div>
                 </div>
               </div>
