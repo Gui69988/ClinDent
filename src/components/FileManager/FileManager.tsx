@@ -347,7 +347,7 @@ export default function FileManager() {
   );
 
   // Handle local file upload / import
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
     const uploadedFile = e.target.files[0];
 
@@ -356,29 +356,44 @@ export default function FileManager() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      const sizeStr = uploadedFile.size >= 1024 * 1024
-        ? `${(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB`
-        : `${(uploadedFile.size / 1024).toFixed(0)} KB`;
+    const sizeStr = uploadedFile.size >= 1024 * 1024
+      ? `${(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB`
+      : `${(uploadedFile.size / 1024).toFixed(0)} KB`;
+
+    let targetPath = '';
+    if (activeCategory === 'pacientes') {
+      if (activeFolder === 'Gerais') {
+        alert("A pasta 'Gerais' é reservada para as fichas de cadastro, prontuários e anamneses exportadas em tempo real pelo ClinDent. Por favor, importe seu arquivo em subpastas clínicas como 'Radiografias' ou 'Exames'.");
+        return;
+      }
+      targetPath = `${getPatientFolderPath(selectedPatientId, activePatient!.name, activeFolder!)}\\${uploadedFile.name}`;
+    } else {
+      targetPath = `${getCategoryPath(activeCategory)}\\${uploadedFile.name}`;
+    }
+
+    const formData = new FormData();
+    formData.append('file', uploadedFile);
+    formData.append('path', targetPath);
+
+    try {
+      const response = await fetch('/api/fs/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to upload');
 
       if (activeCategory === 'pacientes') {
-        if (activeFolder === 'Gerais') {
-          alert("A pasta 'Gerais' é reservada para as fichas de cadastro, prontuários e anamneses exportadas em tempo real pelo ClinDent. Por favor, importe seu arquivo em subpastas clínicas como 'Radiografias' ou 'Exames'.");
-          return;
-        }
-
         addDocument(
           selectedPatientId,
           uploadedFile.name,
           activeFolder as any,
-          dataUrl,
+          targetPath, // Store path instead of base64
           sizeStr,
-          `Importado via Gerenciador de Armazenamento para a pasta local`
+          `Importado via Gerenciador de Armazenamento`
         );
-        logAction('local_file_upload', `Importou arquivo do computador "${uploadedFile.name}" para a pasta local "${activeFolder}" em pacientes.`);
-        alert(`Arquivo "${uploadedFile.name}" importado e sincronizado com sucesso na pasta local!`);
+        logAction('local_file_upload', `Importou arquivo para "${targetPath}"`);
+        alert(`Arquivo "${uploadedFile.name}" salvo na pasta local com sucesso!`);
       } else {
         const newFile: LocalFile = {
           id: 'file_' + Date.now(),
@@ -387,14 +402,16 @@ export default function FileManager() {
           fileName: uploadedFile.name,
           fileSize: sizeStr,
           uploadedAt: new Date().toISOString().split('T')[0],
-          fileDataUrl: dataUrl
+          fileDataUrl: targetPath // Store path
         };
         setGeneralFiles(prev => [newFile, ...prev]);
-        logAction('local_file_upload', `Importou arquivo do computador "${uploadedFile.name}" para a pasta local "${newFile.folderName}" em ${activeCategory}.`);
-        alert(`Arquivo "${uploadedFile.name}" importado do computador e salvo na pasta local com sucesso!`);
+        logAction('local_file_upload', `Importou arquivo para "${targetPath}"`);
+        alert(`Arquivo "${uploadedFile.name}" salvo na pasta local com sucesso!`);
       }
-    };
-    reader.readAsDataURL(uploadedFile);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar arquivo localmente.');
+    }
   };
 
   const handleDeleteFile = (id: string, name: string) => {
@@ -452,14 +469,7 @@ export default function FileManager() {
             <p className="text-xs text-slate-400 mt-0.5 max-w-xl leading-normal">
               Organizador integrado com o disco físico da clínica. O sistema cria e exporta todas as fichas, prontuários, radiografias e exames de forma estruturada na pasta principal <span className="font-mono bg-slate-50 px-1 py-0.5 border rounded text-slate-600 font-bold">\Pacientes</span> de sua máquina local.
             </p>
-            {isLinked && (
-              <button 
-                onClick={handleUnlink}
-                className="mt-2 text-[10px] text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer font-medium"
-              >
-                🗑️ Desvincular pasta de armazenamento local
-              </button>
-            )}
+            {/* Link status indicator can be added here if needed */}
           </div>
         </div>
 
@@ -476,12 +486,6 @@ export default function FileManager() {
               <span className="text-[10px] font-mono bg-slate-50 text-slate-500 px-2 py-1 rounded border border-slate-200" title={rootPath}>
                 {rootPath.length > 25 ? rootPath.substring(0, 22) + '...' : rootPath}
               </span>
-              <button 
-                onClick={handleUnlink}
-                className="text-[10px] text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer font-medium"
-              >
-                🗑️ Desvincular pasta
-              </button>
             </div>
           ) : (
             <button 

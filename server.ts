@@ -2,9 +2,12 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { createServer } from 'vite';
+import multer from 'multer';
 
 const app = express();
 app.use(express.json());
+
+const upload = multer({ dest: 'uploads/' });
 
 // API endpoint to create directory
 app.post('/api/create-patient-folder', (req, res) => {
@@ -27,6 +30,21 @@ app.post('/api/create-patient-folder', (req, res) => {
   } catch (err) {
     console.error('Error creating folder:', err);
     res.status(500).json({ error: 'Failed to create folder' });
+  }
+});
+
+// API endpoint to upload file
+app.post('/api/fs/upload', upload.single('file'), (req: any, res: any) => {
+  const { path: targetPath } = req.body;
+  if (!targetPath || !req.file) return res.status(400).json({ error: 'Path and file required' });
+
+  try {
+    fs.copyFileSync(req.file.path, targetPath);
+    fs.unlinkSync(req.file.path); // remove temp file
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error uploading file:', err);
+    res.status(500).json({ error: 'Failed to upload file' });
   }
 });
 
