@@ -73,7 +73,7 @@ export default function FileManager() {
   
   // Real or simulated local storage root directory path
   const [rootPath, setRootPath] = useState<string>(() => {
-    return localStorage.getItem('clindent_local_root_path') || 'C:\\ClinDent\\Armazenamento_Geral';
+    return localStorage.getItem('clindent_local_root_path') || './Armazenamento_Geral';
   });
   
   const [isLinked, setIsLinked] = useState<boolean>(() => {
@@ -449,20 +449,20 @@ export default function FileManager() {
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // remove accents
       .replace(/[^a-zA-Z0-9]/g, "_"); // replace spaces and symbols
-    return `${rootPath}\\Pacientes\\${patientId}_${safeName}`;
+    return `${rootPath}/Pacientes/${patientId}_${safeName}`;
   };
 
   const getPatientFolderPath = (patientId: string, patientName: string, folderId: string) => {
     const patientPath = getPatientPath(patientId, patientName);
     const config = FOLDERS_CONFIG.find(c => c.id === folderId);
     const folderName = config ? config.folderPathName : folderId;
-    return `${patientPath}\\${folderName}`;
+    return `${patientPath}/${folderName}`;
   };
 
   const getCategoryPath = (cat: FileCategory) => {
-    if (cat === 'pacientes') return `${rootPath}\\Pacientes`;
+    if (cat === 'pacientes') return `${rootPath}/Pacientes`;
     const folderName = cat.charAt(0).toUpperCase() + cat.slice(1);
-    return `${rootPath}\\${folderName}`;
+    return `${rootPath}/${folderName}`;
   };
 
   const categoriesList: { id: FileCategory; label: string; icon: React.ReactNode; desc: string }[] = [
