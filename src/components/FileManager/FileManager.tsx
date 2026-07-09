@@ -414,8 +414,25 @@ export default function FileManager() {
     }
   };
 
-  const handleDeleteFile = (id: string, name: string) => {
+  const handleDeleteFile = async (id: string, name: string) => {
     if (confirm(`Tem certeza que deseja excluir o arquivo "${name}" desta pasta local?`)) {
+      const fileToDelete = files.find(f => f.id === id);
+      const filePath = fileToDelete?.fileDataUrl;
+      
+      if (filePath && !fileToDelete?.isVirtual) {
+        try {
+          await fetch('/api/fs/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: filePath })
+          });
+        } catch (e) {
+          console.error("Could not delete local file:", e);
+          alert("Erro ao excluir arquivo localmente.");
+          return;
+        }
+      }
+
       if (activeCategory === 'pacientes') {
         deleteDocument(id);
         logAction('local_file_delete', `Excluiu o arquivo local "${name}" da pasta.`);

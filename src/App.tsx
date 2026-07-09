@@ -15,7 +15,6 @@ import FinanceManagement from './components/Finance/FinanceManagement';
 import StockManagement from './components/Stock/StockManagement';
 import TeamManagement from './components/Team/TeamManagement';
 import FileManager from './components/FileManager/FileManager';
-import DatabaseDashboard from './components/Database/DatabaseDashboard';
 
 // Subcomponent: Security / LGPD Audit Log (id: 'seguranca')
 function AuditLogPanel() {
@@ -98,8 +97,6 @@ function AppShell() {
         return <AuditLogPanel />;
       case 'arquivos':
         return <FileManager />;
-      case 'banco':
-        return <DatabaseDashboard />;
       case 'dashboard':
       default:
         return <Dashboard />;

@@ -98,21 +98,6 @@ export default function Header({ onSearchSelect }: HeaderProps) {
 
       {/* Quick Info & Actions */}
       <div className="flex items-center space-x-6">
-        {/* Multi-unit Clinica Selection */}
-        <div className="flex items-center space-x-2 text-slate-600 text-sm">
-          <MapPin className="w-4 h-4 text-teal-500" />
-          <span className="font-medium hidden md:inline">Clínica:</span>
-          <select
-            value={currentUnit}
-            onChange={(e) => setCurrentUnit(e.target.value)}
-            className="bg-transparent font-medium text-slate-800 border-none focus:ring-0 focus:outline-none cursor-pointer py-1 pr-8 pl-1 rounded hover:bg-slate-50 transition-colors"
-          >
-            {units.map(u => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
-        </div>
-
         {/* Security / LGPD Compliance Status Badge */}
         <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1 bg-teal-50/70 border border-teal-100 rounded-full text-xs text-teal-700">
           <ShieldCheck className="w-3.5 h-3.5 text-teal-500" />
