@@ -46,7 +46,6 @@ const FOLDERS_CONFIG = [
   { id: 'radiografias', label: 'Radiografias (RX)', iconColor: 'bg-blue-50 text-blue-600', folderPathName: 'Radiografias' },
   { id: 'gto', label: "Gto's (Guias de Convênio)", iconColor: 'bg-amber-50 text-amber-600', folderPathName: "Gto's" },
   { id: 'pessoais', label: 'Exames e Laudos', iconColor: 'bg-indigo-50 text-indigo-600', folderPathName: 'Exames' },
-  { id: 'antes_depois', label: 'Estética do Sorriso', iconColor: 'bg-emerald-50 text-emerald-600', folderPathName: 'Estética_do_Sorriso' },
   { id: 'contratos', label: 'Contratos e Termos', iconColor: 'bg-purple-50 text-purple-600', folderPathName: 'Contratos' },
   { id: 'Gerais', label: 'Fichas e Prontuários Gerais', iconColor: 'bg-slate-50 text-slate-600', folderPathName: 'Gerais' }
 ];
@@ -334,6 +333,11 @@ export default function FileManager() {
     logAction('unlink_local_folder', 'Desvinculou pasta de armazenamento local');
   };
 
+  const handleOpenFolder = () => {
+    window.open(`file:///${rootPath.replace(/\\/g, '/')}`, '_blank');
+    alert(`Caminho da pasta local do ClinDent:\n\n${rootPath}\n\nPara acessar rapidamente no seu computador:\n1. Pressione simultaneamente as teclas Windows + R\n2. Cole o caminho acima e clique em OK.`);
+  };
+
   const activePatient = patients.find(p => p.id === selectedPatientId && !p.deletedAt);
 
   // Filter patients/subfolders based on query
@@ -447,20 +451,29 @@ export default function FileManager() {
             <p className="text-xs text-slate-400 mt-0.5 max-w-xl leading-normal">
               Organizador integrado com o disco físico da clínica. O sistema cria e exporta todas as fichas, prontuários, radiografias e exames de forma estruturada na pasta principal <span className="font-mono bg-slate-50 px-1 py-0.5 border rounded text-slate-600 font-bold">\Pacientes</span> de sua máquina local.
             </p>
+            {isLinked && (
+              <button 
+                onClick={handleUnlink}
+                className="mt-2 text-[10px] text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer font-medium"
+              >
+                🗑️ Desvincular pasta de armazenamento local
+              </button>
+            )}
           </div>
         </div>
 
         <div>
           {isLinked ? (
             <div className="flex items-center space-x-2.5">
-              <span className="text-xs font-mono bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 font-bold" title={rootPath}>
+              <span className="text-xs font-mono bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 font-bold" title={rootPath}>
                 {rootPath.length > 25 ? rootPath.substring(0, 22) + '...' : rootPath}
               </span>
               <button 
-                onClick={handleUnlink}
-                className="px-3 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                onClick={handleOpenFolder}
+                className="px-4 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-lg text-xs transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer"
               >
-                Desvincular
+                <Folder className="w-4 h-4 fill-current/10" />
+                <span>Abrir Pasta</span>
               </button>
             </div>
           ) : (

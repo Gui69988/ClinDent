@@ -51,23 +51,25 @@ if not exist "C:\ClinDent\Armazenamento_Geral\Auditoria" (
 if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes" (
     mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes" >nul 2>&1
 )
-if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Gerais" (
-    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Gerais" >nul 2>&1
+
+:: Criar uma pasta modelo/template de paciente para referência
+if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template" (
+    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template" >nul 2>&1
 )
-if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Radiografias" (
-    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Radiografias" >nul 2>&1
+if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Contratos" (
+    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Contratos" >nul 2>&1
 )
-if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Gto's" (
-    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Gto's" >nul 2>&1
+if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Exames" (
+    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Exames" >nul 2>&1
 )
-if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Exames" (
-    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Exames" >nul 2>&1
+if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Gerais" (
+    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Gerais" >nul 2>&1
 )
-if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Estetica_do_Sorriso" (
-    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Estetica_do_Sorriso" >nul 2>&1
+if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Gto's" (
+    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Gto's" >nul 2>&1
 )
-if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Contratos" (
-    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Contratos" >nul 2>&1
+if not exist "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Radiografias" (
+    mkdir "C:\ClinDent\Armazenamento_Geral\Pacientes\Modelo_Paciente_Template\Radiografias" >nul 2>&1
 )
 
 echo [OK] Estrutura de pastas locais criada com sucesso!
