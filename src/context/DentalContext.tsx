@@ -157,6 +157,29 @@ export const DentalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Load and populate storage on init
   useEffect(() => {
+    // FORÇA LIMPEZA DE TODOS OS DADOS SALVOS ANTERIORMENTE NO SITE (Wipe clean)
+    const alreadyCleared = localStorage.getItem('clindent_is_cleared_v4');
+    if (!alreadyCleared) {
+      const keysToRemove = [
+        'clindent_patients',
+        'clindent_anamneses',
+        'clindent_odontograms',
+        'clindent_evolutions',
+        'clindent_documents',
+        'clindent_budgets',
+        'clindent_appointments',
+        'clindent_waiting',
+        'clindent_financials',
+        'clindent_stock',
+        'clindent_autoclave',
+        'clindent_users',
+        'clindent_logs',
+        'clindent_local_general_files'
+      ];
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('clindent_is_cleared_v4', 'true');
+    }
+
     const localPatients = localStorage.getItem('clindent_patients');
     const localAnamneses = localStorage.getItem('clindent_anamneses');
     const localOdontograms = localStorage.getItem('clindent_odontograms');
@@ -680,33 +703,57 @@ export const DentalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         { id: 'l2', timestamp: '2026-07-09T08:15:00Z', userId: 'u1', userName: 'Dr. Carlos Silva', role: 'admin', action: 'visualizar_prontuario', details: 'Visualizou prontuário eletrônico do paciente: Maria de Souza Santos', ipAddress: '192.168.1.12' }
       ];
 
-      setPatients(mockPatients);
-      setAnamneses(mockAnamneses);
-      setOdontograms(mockOdontograms);
-      setEvolutions(mockEvolutions);
-      setDocuments(mockDocuments);
-      setBudgets(mockBudgets);
-      setAppointments(mockAppointments);
-      setWaitingList(mockWaitingList);
-      setFinancials(mockFinancials);
-      setStock(mockStock);
-      setAutoclaveCycles(mockAutoclave);
-      setUsers(mockUsers);
-      setAuditLogs(mockLogs);
+      const cleanUsers = [mockUsers[0]]; // Only keep Dr. Carlos Silva as default administrator
 
-      localStorage.setItem('clindent_patients', JSON.stringify(mockPatients));
-      localStorage.setItem('clindent_anamneses', JSON.stringify(mockAnamneses));
-      localStorage.setItem('clindent_odontograms', JSON.stringify(mockOdontograms));
-      localStorage.setItem('clindent_evolutions', JSON.stringify(mockEvolutions));
-      localStorage.setItem('clindent_documents', JSON.stringify(mockDocuments));
-      localStorage.setItem('clindent_budgets', JSON.stringify(mockBudgets));
-      localStorage.setItem('clindent_appointments', JSON.stringify(mockAppointments));
-      localStorage.setItem('clindent_waiting', JSON.stringify(mockWaitingList));
-      localStorage.setItem('clindent_financials', JSON.stringify(mockFinancials));
-      localStorage.setItem('clindent_stock', JSON.stringify(mockStock));
-      localStorage.setItem('clindent_autoclave', JSON.stringify(mockAutoclave));
-      localStorage.setItem('clindent_users', JSON.stringify(mockUsers));
-      localStorage.setItem('clindent_logs', JSON.stringify(mockLogs));
+      setPatients([]);
+      setAnamneses({});
+      setOdontograms({});
+      setEvolutions([]);
+      setDocuments([]);
+      setBudgets([]);
+      setAppointments([]);
+      setWaitingList([]);
+      setFinancials([]);
+      setStock([]);
+      setAutoclaveCycles([]);
+      setUsers(cleanUsers);
+      setAuditLogs([
+        { 
+          id: 'l1', 
+          timestamp: new Date().toISOString(), 
+          userId: 'u1', 
+          userName: 'Dr. Carlos Silva', 
+          role: 'admin', 
+          action: 'limpeza_banco_dados', 
+          details: 'Banco de dados reiniciado e limpo de todas as informações salvas.', 
+          ipAddress: '127.0.0.1' 
+        }
+      ]);
+
+      localStorage.setItem('clindent_patients', JSON.stringify([]));
+      localStorage.setItem('clindent_anamneses', JSON.stringify({}));
+      localStorage.setItem('clindent_odontograms', JSON.stringify({}));
+      localStorage.setItem('clindent_evolutions', JSON.stringify([]));
+      localStorage.setItem('clindent_documents', JSON.stringify([]));
+      localStorage.setItem('clindent_budgets', JSON.stringify([]));
+      localStorage.setItem('clindent_appointments', JSON.stringify([]));
+      localStorage.setItem('clindent_waiting', JSON.stringify([]));
+      localStorage.setItem('clindent_financials', JSON.stringify([]));
+      localStorage.setItem('clindent_stock', JSON.stringify([]));
+      localStorage.setItem('clindent_autoclave', JSON.stringify([]));
+      localStorage.setItem('clindent_users', JSON.stringify(cleanUsers));
+      localStorage.setItem('clindent_logs', JSON.stringify([
+        { 
+          id: 'l1', 
+          timestamp: new Date().toISOString(), 
+          userId: 'u1', 
+          userName: 'Dr. Carlos Silva', 
+          role: 'admin', 
+          action: 'limpeza_banco_dados', 
+          details: 'Banco de dados reiniciado e limpo de todas as informações salvas.', 
+          ipAddress: '127.0.0.1' 
+        }
+      ]));
     }
   }, []);
 

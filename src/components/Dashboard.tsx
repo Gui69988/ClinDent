@@ -16,10 +16,7 @@ import {
   ArrowDownRight,
   Clock,
   ShieldCheck,
-  Gift,
-  Terminal,
-  Download,
-  Play
+  Gift
 } from 'lucide-react';
 import { useDental } from '../context/DentalContext';
 
@@ -124,40 +121,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Iniciar Site .bat Card */}
-      <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-5" id="iniciar-site-bat-card">
-        <div className="flex items-start space-x-4">
-          <div className="p-3 bg-teal-50 text-teal-600 rounded-xl border border-teal-100 shrink-0">
-            <Terminal className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-bold text-slate-800">Inicializador Rápido de 1 Clique (Iniciar_site.bat)</h3>
-              <span className="bg-teal-100 text-teal-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono uppercase">
-                Recomendado
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-1.5 max-w-2xl leading-relaxed">
-              Criamos o arquivo <span className="font-mono font-bold bg-slate-100 px-1 py-0.5 border rounded text-slate-700">Iniciar_site.bat</span> no diretório raiz do projeto. Ao clicar duas vezes nele no Windows, o sistema fará a instalação automática de dependências, ativará o servidor de desenvolvimento local e abrirá o ClinDent diretamente no seu navegador de internet!
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-[11px] text-slate-400 font-medium">
-              <span className="flex items-center"><Play className="w-3.5 h-3.5 text-teal-600 mr-1" /> Execução Expressa</span>
-              <span className="flex items-center"><ShieldCheck className="w-3.5 h-3.5 text-teal-600 mr-1" /> Configuração Zero</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-2 shrink-0">
-          <a
-            href="/Iniciar_site.bat"
-            download="Iniciar_site.bat"
-            className="px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs rounded-xl shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
-            id="download-bat-btn"
-          >
-            <Download className="w-4 h-4" />
-            <span>Baixar "Iniciar_site.bat"</span>
-          </a>
-        </div>
-      </div>
 
       {/* Birthday Reminders Section */}
       {birthdayPatients.length > 0 && (
