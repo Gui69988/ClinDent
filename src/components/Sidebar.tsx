@@ -17,7 +17,8 @@ import {
   EyeOff,
   Briefcase,
   UserCheck,
-  Folder
+  Folder,
+  Database
 } from 'lucide-react';
 import { useDental } from '../context/DentalContext';
 
@@ -36,7 +37,8 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'financeiro', label: 'Gestão Financeira', icon: DollarSign, roles: ['admin', 'recepcionista'] },
     { id: 'estoque', label: 'Estoque & Autoclave', icon: Package, roles: ['admin', 'recepcionista', 'dentista'] },
     { id: 'equipe', label: 'Equipe & CRO', icon: Briefcase, roles: ['admin'] },
-    { id: 'seguranca', label: 'Auditoria & LGPD', icon: Shield, roles: ['admin'] }
+    { id: 'seguranca', label: 'Auditoria & LGPD', icon: Shield, roles: ['admin'] },
+    { id: 'banco', label: 'Banco de Dados', icon: Database, roles: ['admin', 'dentista', 'recepcionista'] }
   ];
 
   return (
