@@ -733,7 +733,16 @@ export const DentalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const saveAndSetDocuments = (newDocs: DocumentFile[]) => {
     setDocuments(newDocs);
-    localStorage.setItem('clindent_documents', JSON.stringify(newDocs));
+    try {
+      localStorage.setItem('clindent_documents', JSON.stringify(newDocs));
+    } catch (error) {
+      console.error('Failed to save documents to localStorage:', error);
+      alert(
+        'Aviso: O espaço de armazenamento do seu navegador está cheio para esta página.\n\n' +
+        'O documento foi carregado e poderá ser visualizado nesta sessão, mas pode não ser salvo permanentemente. ' +
+        'Recomendamos remover alguns documentos antigos ou usar imagens de menor resolução.'
+      );
+    }
   };
 
   const saveAndSetBudgets = (newBudgets: Budget[]) => {

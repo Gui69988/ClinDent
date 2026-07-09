@@ -59,10 +59,11 @@ export default function DocumentsTab({ patient }: DocumentsTabProps) {
   const isImageFile = (doc: DocumentFile) => {
     if (!doc) return false;
     const fileUrl = doc.url || '';
+    const nameMatch = doc.name.match(/\.(jpeg|jpg|gif|png|webp|svg|heic|heif|jfif)$/i) !== null;
     if (fileUrl.startsWith('data:')) {
-      return fileUrl.startsWith('data:image/');
+      return fileUrl.startsWith('data:image/') || nameMatch;
     }
-    return doc.name.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) !== null;
+    return nameMatch;
   };
 
   // Handle actual file upload chosen by the user
@@ -73,22 +74,98 @@ export default function DocumentsTab({ patient }: DocumentsTabProps) {
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
-      const sizeStr = file.size >= 1024 * 1024
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-        : `${(file.size / 1024).toFixed(0)} KB`;
+      const isImg = file.type.startsWith('image/') || file.name.match(/\.(jpeg|jpg|gif|png|webp|heic|heif|jfif)$/i) !== null;
 
-      const mappedCategory = getMappedCategory(activeFolder);
+      if (isImg) {
+        // Create an image to compress using canvas
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimensions for diagnostic/aesthetic view
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Convert to JPEG with 0.75 quality for super high-efficiency storage
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+            
+            // Calculate size of compressed base64 string
+            const head = 'data:image/jpeg;base64,';
+            const sizeInBytes = Math.round((compressedDataUrl.length - head.length) * 3 / 4);
+            const sizeStr = sizeInBytes >= 1024 * 1024
+              ? `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`
+              : `${(sizeInBytes / 1024).toFixed(0)} KB`;
 
-      addDocument(
-        patient.id,
-        file.name,
-        mappedCategory,
-        dataUrl,
-        sizeStr,
-        `Enviado pelo usuário em ${new Date().toLocaleDateString('pt-BR')}`
-      );
-      
-      alert(`Arquivo "${file.name}" importado com sucesso para a pasta do paciente!`);
+            const mappedCategory = getMappedCategory(activeFolder);
+
+            addDocument(
+              patient.id,
+              file.name,
+              mappedCategory,
+              compressedDataUrl,
+              sizeStr,
+              `Enviado e otimizado pelo usuário em ${new Date().toLocaleDateString('pt-BR')}`
+            );
+            
+            alert(`Imagem "${file.name}" importada e otimizada com sucesso!`);
+          } else {
+            // Fallback if canvas context fails
+            const sizeStr = file.size >= 1024 * 1024
+              ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+              : `${(file.size / 1024).toFixed(0)} KB`;
+            const mappedCategory = getMappedCategory(activeFolder);
+            addDocument(patient.id, file.name, mappedCategory, dataUrl, sizeStr, `Enviado pelo usuário em ${new Date().toLocaleDateString('pt-BR')}`);
+            alert(`Arquivo "${file.name}" importado com sucesso!`);
+          }
+        };
+        img.onerror = () => {
+          // Fallback if image load fails
+          const sizeStr = file.size >= 1024 * 1024
+            ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+            : `${(file.size / 1024).toFixed(0)} KB`;
+          const mappedCategory = getMappedCategory(activeFolder);
+          addDocument(patient.id, file.name, mappedCategory, dataUrl, sizeStr, `Enviado pelo usuário em ${new Date().toLocaleDateString('pt-BR')}`);
+          alert(`Arquivo "${file.name}" importado com sucesso!`);
+        };
+        img.src = dataUrl;
+      } else {
+        // Non-image document
+        const sizeStr = file.size >= 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+          : `${(file.size / 1024).toFixed(0)} KB`;
+
+        const mappedCategory = getMappedCategory(activeFolder);
+
+        addDocument(
+          patient.id,
+          file.name,
+          mappedCategory,
+          dataUrl,
+          sizeStr,
+          `Enviado pelo usuário em ${new Date().toLocaleDateString('pt-BR')}`
+        );
+        
+        alert(`Arquivo "${file.name}" importado com sucesso!`);
+      }
     };
     reader.readAsDataURL(file);
 
