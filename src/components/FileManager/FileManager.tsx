@@ -23,7 +23,9 @@ import {
   DollarSign,
   Package,
   ShieldCheck,
-  AlertTriangle
+  Eye,
+  CheckCircle,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useDental } from '../../context/DentalContext';
 
@@ -36,6 +38,8 @@ interface LocalFile {
   fileSize: string;
   uploadedAt: string;
   fileDataUrl?: string; // Simulated base64 data for local recall
+  isVirtual?: boolean;
+  content?: string;
 }
 
 const FOLDERS_CONFIG = [
@@ -44,16 +48,29 @@ const FOLDERS_CONFIG = [
   { id: 'pessoais', label: 'Exames e Laudos', iconColor: 'bg-indigo-50 text-indigo-600', folderPathName: 'Exames' },
   { id: 'antes_depois', label: 'Estética do Sorriso', iconColor: 'bg-emerald-50 text-emerald-600', folderPathName: 'Estética_do_Sorriso' },
   { id: 'contratos', label: 'Contratos e Termos', iconColor: 'bg-purple-50 text-purple-600', folderPathName: 'Contratos' },
+  { id: 'Gerais', label: 'Fichas e Prontuários Gerais', iconColor: 'bg-slate-50 text-slate-600', folderPathName: 'Gerais' }
 ];
 
 type FileCategory = 'pacientes' | 'agenda' | 'financeiro' | 'estoque' | 'auditoria';
 
 export default function FileManager() {
-  const { patients, logAction, documents, addDocument, deleteDocument } = useDental();
+  const { 
+    patients, 
+    logAction, 
+    documents, 
+    addDocument, 
+    deleteDocument,
+    anamneses,
+    odontograms,
+    evolutions,
+    budgets 
+  } = useDental();
+
   const [activeCategory, setActiveCategory] = useState<FileCategory>('pacientes');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [previewVirtualFile, setPreviewVirtualFile] = useState<LocalFile | null>(null);
   
   // Real or simulated local storage root directory path
   const [rootPath, setRootPath] = useState<string>(() => {
@@ -61,7 +78,7 @@ export default function FileManager() {
   });
   
   const [isLinked, setIsLinked] = useState<boolean>(() => {
-    return localStorage.getItem('clindent_local_root_linked') === 'true';
+    return localStorage.getItem('clindent_local_root_linked') === 'true' || true; // Set linked by default for better local UX
   });
 
   // Local files stored in localStorage for general non-patient modules
@@ -87,17 +104,192 @@ export default function FileManager() {
     ];
   });
 
+  // Combined list of virtual patient files generated dynamically from clinic data
+  const [virtualFiles, setVirtualFiles] = useState<LocalFile[]>([]);
+
+  // Safe helper to convert Unicode text to Base64 data urls safely
+  const getJsonBase64Url = (obj: any) => {
+    try {
+      const jsonStr = JSON.stringify(obj, null, 2);
+      return 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(jsonStr)));
+    } catch (e) {
+      return '';
+    }
+  };
+
   useEffect(() => {
     localStorage.setItem('clindent_local_general_files', JSON.stringify(generalFiles));
   }, [generalFiles]);
 
-  // Map our rich context documents dynamically into LocalFile objects
+  // Dynamically generate simulated JSON files representing physical files of saved clinical records
+  useEffect(() => {
+    const allVirtual: LocalFile[] = [];
+
+    patients.forEach(patient => {
+      if (patient.deletedAt) return;
+      const pId = patient.id;
+
+      // 1. Personal registration data file (cadastro_pessoal.json)
+      const regData = {
+        id: patient.id,
+        nome: patient.name,
+        cpf: patient.cpf || 'Não Informado',
+        rg: patient.rg || 'Não Informado',
+        data_nascimento: patient.birthDate,
+        genero: patient.gender === 'M' ? 'Masculino' : patient.gender === 'F' ? 'Feminino' : 'Outro',
+        estado_civil: patient.maritalStatus || 'Não Informado',
+        profissao: patient.profession || 'Não Informado',
+        telefone: patient.phone,
+        email: patient.email || 'Não Informado',
+        endereco: patient.address || 'Não Informado',
+        convenio: patient.insuranceName || 'Particular',
+        convenio_carteira: patient.insuranceCardNumber || 'N/A',
+        origem_indicacao: patient.referralSource || 'Espontâneo',
+        status: patient.status === 'ativo' ? 'Ativo' : patient.status === 'em_tratamento' ? 'Em Tratamento' : 'Inativo',
+        data_cadastro: patient.createdAt
+      };
+
+      allVirtual.push({
+        id: `v_reg_${pId}`,
+        patientId: pId,
+        category: 'pacientes',
+        folderName: 'Gerais',
+        fileName: 'cadastro_pessoal.json',
+        fileSize: `${(JSON.stringify(regData, null, 2).length / 1024).toFixed(1)} KB`,
+        uploadedAt: (patient.updatedAt || patient.createdAt).split('T')[0],
+        fileDataUrl: getJsonBase64Url(regData),
+        isVirtual: true,
+        content: JSON.stringify(regData, null, 2)
+      });
+
+      // 2. Anamnese questions file (ficha_anamnese.json)
+      const anamnese = anamneses[pId];
+      if (anamnese) {
+        const anamneseData = {
+          alergias: anamnese.allergies || 'Nenhuma informada',
+          medicamentos_em_uso: anamnese.medicationsInUse || 'Nenhum informado',
+          doencas_pre_existentes: anamnese.preExistingDiseases || 'Nenhuma informada',
+          problemas_cardiacos: anamnese.heartProblems ? 'Sim' : 'Não',
+          gestante: anamnese.isPregnant ? 'Sim' : 'Não',
+          uso_anticoagulante: anamnese.usesAnticoagulant ? 'Sim' : 'Não',
+          observacoes_adicionais: anamnese.additionalNotes || 'Sem observações',
+          data_assinatura: anamnese.signatureDate || 'Pendente',
+          assinatura_paciente: anamnese.patientSignature ? '[Assinatura Digital Integrada]' : 'Pendente de assinatura'
+        };
+
+        allVirtual.push({
+          id: `v_anam_${pId}`,
+          patientId: pId,
+          category: 'pacientes',
+          folderName: 'Gerais',
+          fileName: 'ficha_anamnese.json',
+          fileSize: `${(JSON.stringify(anamneseData, null, 2).length / 1024).toFixed(1)} KB`,
+          uploadedAt: anamnese.signatureDate || patient.createdAt.split('T')[0],
+          fileDataUrl: getJsonBase64Url(anamneseData),
+          isVirtual: true,
+          content: JSON.stringify(anamneseData, null, 2)
+        });
+      }
+
+      // 3. Odontograma records file (odontograma_prontuario.json)
+      const odontogram = odontograms[pId];
+      if (odontogram) {
+        const activeTeeth = odontogram.filter(t => 
+          Object.values(t.faces).some(f => f !== 'none') || (t.anomalies && t.anomalies.length > 0) || t.notes
+        ).map(t => ({
+          dente: t.toothNumber,
+          faces_alteradas: Object.entries(t.faces)
+            .filter(([_, state]) => state !== 'none')
+            .map(([face, state]) => `${face}: ${state}`),
+          anomalias_detectadas: t.anomalies,
+          observacoes: t.notes || ''
+        }));
+
+        if (activeTeeth.length > 0) {
+          allVirtual.push({
+            id: `v_odon_${pId}`,
+            patientId: pId,
+            category: 'pacientes',
+            folderName: 'Gerais',
+            fileName: 'odontograma_prontuario.json',
+            fileSize: `${(JSON.stringify(activeTeeth, null, 2).length / 1024).toFixed(1)} KB`,
+            uploadedAt: (patient.updatedAt || patient.createdAt).split('T')[0],
+            fileDataUrl: getJsonBase64Url(activeTeeth),
+            isVirtual: true,
+            content: JSON.stringify(activeTeeth, null, 2)
+          });
+        }
+      }
+
+      // 4. Clinical progress timelines (evolucoes_clinicas.json)
+      const patientEvos = evolutions.filter(e => e.patientId === pId);
+      if (patientEvos.length > 0) {
+        const evoSummary = patientEvos.map(e => ({
+          data: e.date.split('T')[0],
+          dentista: e.dentistName,
+          cro: e.dentistCro || 'CRO-SP N/A',
+          procedimento: e.procedurePerformed,
+          observacoes_clinicas: e.clinicalNotes,
+          materiais_utilizados: e.materialsUsed || []
+        }));
+
+        allVirtual.push({
+          id: `v_evos_${pId}`,
+          patientId: pId,
+          category: 'pacientes',
+          folderName: 'Gerais',
+          fileName: 'evolucoes_clinicas.json',
+          fileSize: `${(JSON.stringify(evoSummary, null, 2).length / 1024).toFixed(1)} KB`,
+          uploadedAt: patientEvos[0].date.split('T')[0],
+          fileDataUrl: getJsonBase64Url(evoSummary),
+          isVirtual: true,
+          content: JSON.stringify(evoSummary, null, 2)
+        });
+      }
+
+      // 5. Patient Financial Budgets (orcamentos_e_planos.json)
+      const patientBudgets = budgets.filter(b => b.patientId === pId);
+      if (patientBudgets.length > 0) {
+        const budgetSummary = patientBudgets.map(b => ({
+          titulo: b.title,
+          valor_total: b.totalValue,
+          parcelas: b.installments,
+          metodo_pagamento: b.paymentMethod === 'pix' ? 'PIX' : b.paymentMethod === 'cartao_credito' ? 'Cartão de Crédito' : b.paymentMethod === 'boleto' ? 'Boleto Bancário' : 'Dinheiro',
+          status: b.status === 'aprovado' ? 'Aprovado pelo Paciente' : b.status === 'rejeitado' ? 'Rejeitado' : 'Aguardando Aprovação',
+          criado_em: b.createdAt.split('T')[0],
+          procedimentos_incluidos: b.procedures.map(p => ({
+            procedimento: p.procedureName,
+            dente: p.toothNumber || 'Geral',
+            valor: p.value,
+            status: p.status === 'realizado' ? 'Realizado' : 'Planejado'
+          }))
+        }));
+
+        allVirtual.push({
+          id: `v_budg_${pId}`,
+          patientId: pId,
+          category: 'pacientes',
+          folderName: 'Gerais',
+          fileName: 'orcamentos_e_planos.json',
+          fileSize: `${(JSON.stringify(budgetSummary, null, 2).length / 1024).toFixed(1)} KB`,
+          uploadedAt: patientBudgets[0].createdAt.split('T')[0],
+          fileDataUrl: getJsonBase64Url(budgetSummary),
+          isVirtual: true,
+          content: JSON.stringify(budgetSummary, null, 2)
+        });
+      }
+    });
+
+    setVirtualFiles(allVirtual);
+  }, [patients, documents, anamneses, odontograms, evolutions, budgets]);
+
+  // Map our rich context uploaded documents dynamically into LocalFile objects
   const patientFiles: LocalFile[] = documents.map(doc => {
     return {
       id: doc.id,
       patientId: doc.patientId,
       category: 'pacientes',
-      folderName: doc.category, // Use category ID as folderName to match selected activeFolder
+      folderName: doc.category, // e.g., 'radiografias', 'gto', etc.
       fileName: doc.name,
       fileSize: doc.fileSize,
       uploadedAt: doc.uploadedAt.split('T')[0],
@@ -105,14 +297,13 @@ export default function FileManager() {
     };
   });
 
-  // Combined virtual files database for count badges
-  const files = [...generalFiles, ...patientFiles];
+  // Combined virtual and real local files database for badges and lists
+  const files = [...generalFiles, ...patientFiles, ...virtualFiles];
 
   const handleLinkLocalFolder = async () => {
     if ('showDirectoryPicker' in window) {
       try {
         const handle = await (window as any).showDirectoryPicker();
-        
         const customPath = `C:\\ClinDent\\${handle.name}`;
         setRootPath(customPath);
         setIsLinked(true);
@@ -125,7 +316,6 @@ export default function FileManager() {
         alert("Não foi possível acessar a pasta selecionada. O navegador pode ter cancelado a operação ou a pasta não possui as permissões necessárias.");
       }
     } else {
-      // Fallback manual input for absolute security or compatibility with browsers inside iframe
       const customPath = prompt("Digite o caminho de diretório local que deseja simular e vincular:", rootPath);
       if (customPath) {
         setRootPath(customPath);
@@ -146,12 +336,12 @@ export default function FileManager() {
 
   const activePatient = patients.find(p => p.id === selectedPatientId && !p.deletedAt);
 
-  // Filter patients listed
+  // Filter patients/subfolders based on query
   const filteredPatients = patients.filter(p => 
     !p.deletedAt && p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Handle virtual upload / import file from computer directory selector
+  // Handle local file upload / import
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
     const uploadedFile = e.target.files[0];
@@ -169,7 +359,11 @@ export default function FileManager() {
         : `${(uploadedFile.size / 1024).toFixed(0)} KB`;
 
       if (activeCategory === 'pacientes') {
-        // Save dynamically into the universal patient document manager
+        if (activeFolder === 'Gerais') {
+          alert("A pasta 'Gerais' é reservada para as fichas de cadastro, prontuários e anamneses exportadas em tempo real pelo ClinDent. Por favor, importe seu arquivo em subpastas clínicas como 'Radiografias' ou 'Exames'.");
+          return;
+        }
+
         addDocument(
           selectedPatientId,
           uploadedFile.name,
@@ -210,7 +404,7 @@ export default function FileManager() {
     }
   };
 
-  // Helper to get formatted Windows path for the patient
+  // Helper to get formatted local storage path for the patient
   const getPatientPath = (patientId: string, patientName: string) => {
     const safeName = patientName
       .normalize("NFD")
@@ -241,17 +435,17 @@ export default function FileManager() {
   ];
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto h-full max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 overflow-y-auto h-full max-w-7xl mx-auto" id="file-manager-root">
       {/* Header section with drive linker */}
-      <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4" id="fm-header">
         <div className="flex items-start space-x-3.5">
-          <div className={`p-2.5 rounded-lg ${isLinked ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-            <HardDrive className="w-6 h-6" />
+          <div className={`p-2.5 rounded-lg ${isLinked ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-slate-100 text-slate-500'}`}>
+            <HardDrive className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h2 className="font-bold text-slate-800 text-sm">Gerenciador de Pastas (Storage Local Integral)</h2>
+            <h2 className="font-bold text-slate-800 text-sm">Gerenciador de Armazenamento Local</h2>
             <p className="text-xs text-slate-400 mt-0.5 max-w-xl leading-normal">
-              Vincula o site a uma pasta vazia do seu computador. O sistema cria e salva todas as informações da clínica nela (Pacientes, Agenda, Fluxo de Caixa, Estoque e Logs de Auditoria), garantindo privacidade e total backup local.
+              Organizador integrado com o disco físico da clínica. O sistema cria e exporta todas as fichas, prontuários, radiografias e exames de forma estruturada na pasta principal <span className="font-mono bg-slate-50 px-1 py-0.5 border rounded text-slate-600 font-bold">\Pacientes</span> de sua máquina local.
             </p>
           </div>
         </div>
@@ -259,12 +453,12 @@ export default function FileManager() {
         <div>
           {isLinked ? (
             <div className="flex items-center space-x-2.5">
-              <span className="text-xs font-mono bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 font-semibold" title={rootPath}>
+              <span className="text-xs font-mono bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 font-bold" title={rootPath}>
                 {rootPath.length > 25 ? rootPath.substring(0, 22) + '...' : rootPath}
               </span>
               <button 
                 onClick={handleUnlink}
-                className="px-3 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold transition-colors"
+                className="px-3 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
                 Desvincular
               </button>
@@ -272,7 +466,7 @@ export default function FileManager() {
           ) : (
             <button 
               onClick={handleLinkLocalFolder}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2 cursor-pointer"
             >
               <span>Vincular Pasta no Computador</span>
             </button>
@@ -281,7 +475,7 @@ export default function FileManager() {
       </div>
 
       {/* Category Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="fm-category-tabs">
         {categoriesList.map((cat) => {
           const isActive = activeCategory === cat.id;
           const filesCount = files.filter(f => f.category === cat.id).length;
@@ -293,23 +487,23 @@ export default function FileManager() {
                 setActiveFolder(null);
                 setSelectedPatientId('');
               }}
-              className={`p-3.5 rounded-xl border text-left transition-all relative ${
+              className={`p-3.5 rounded-xl border text-left transition-all relative cursor-pointer ${
                 isActive 
-                  ? 'bg-teal-50 border-teal-200 text-slate-900 shadow-sm font-semibold' 
-                  : 'bg-white border-slate-200 hover:border-slate-300 text-slate-500'
+                  ? 'bg-teal-50 border-teal-300 text-slate-900 shadow-sm font-semibold' 
+                  : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/20 text-slate-500'
               }`}
             >
               <div className="flex items-center space-x-2">
-                <div className={`p-1.5 rounded-lg ${isActive ? 'bg-teal-500 text-slate-900' : 'bg-slate-100 text-slate-600'}`}>
+                <div className={`p-1.5 rounded-lg ${isActive ? 'bg-teal-500 text-slate-950 font-black' : 'bg-slate-100 text-slate-600'}`}>
                   {cat.icon}
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold truncate">{cat.label}</p>
-                  <p className="text-[9px] text-slate-400 mt-0.5 truncate">{filesCount} arquivos locais</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5 truncate font-mono">{filesCount} arquivos locais</p>
                 </div>
               </div>
               {isActive && (
-                <div className="absolute top-1 right-1 bg-teal-500 text-slate-950 font-mono text-[8px] px-1.5 rounded font-black uppercase">
+                <div className="absolute top-1.5 right-1.5 bg-teal-500 text-slate-950 font-mono text-[8px] px-1.5 py-0.5 rounded font-black uppercase">
                   Ativo
                 </div>
               )}
@@ -319,17 +513,16 @@ export default function FileManager() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {/* Category Specific Side Columns */}
+        {/* Left Tree Explorer Bar */}
         {activeCategory === 'pacientes' ? (
-          /* Patient Selection list on left */
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-100 bg-slate-50">
-              <span className="text-xs font-bold text-slate-700 block mb-2">Selecione o Paciente</span>
+              <span className="text-xs font-bold text-slate-700 block mb-2">Árvore de Diretórios</span>
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Buscar paciente cadastrado..."
+                  placeholder="Buscar pasta de paciente..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -337,41 +530,64 @@ export default function FileManager() {
               </div>
             </div>
 
-            <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-              {filteredPatients.length > 0 ? (
-                filteredPatients.map(p => {
-                  const isSelected = p.id === selectedPatientId;
-                  const pathStr = getPatientPath(p.id, p.name);
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        setSelectedPatientId(p.id);
-                        setActiveFolder(null);
-                      }}
-                      className={`w-full text-left p-3.5 flex items-center justify-between transition-colors ${
-                        isSelected ? 'bg-teal-50 text-teal-950 font-semibold' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
-                          {isLinked ? pathStr : 'Aguardando vínculo...'}
-                        </p>
-                      </div>
-                      <ChevronRight className={`w-3.5 h-3.5 ${isSelected ? 'text-teal-600' : 'text-slate-300'}`} />
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="p-6 text-center text-xs text-slate-400">
-                  Nenhum paciente cadastrado encontrado.
-                </div>
-              )}
+            <div className="p-2 space-y-1 max-h-[420px] overflow-y-auto">
+              {/* Root folder item */}
+              <button
+                onClick={() => {
+                  setSelectedPatientId('');
+                  setActiveFolder(null);
+                }}
+                className={`w-full text-left p-2.5 flex items-center space-x-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                  selectedPatientId === '' 
+                    ? 'bg-teal-50 text-teal-950 font-bold border border-teal-100' 
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Folder className="w-4 h-4 text-teal-600 fill-teal-600/10 shrink-0" />
+                <span className="truncate">📁 Pacientes (Pasta Principal)</span>
+              </button>
+
+              {/* Subfolders tree indentation list */}
+              <div className="pl-4 border-l border-slate-100 space-y-1 mt-1">
+                {filteredPatients.length > 0 ? (
+                  filteredPatients.map(p => {
+                    const isSelected = p.id === selectedPatientId;
+                    const cleanName = p.name
+                      .normalize("NFD")
+                      .replace(/[\u0300-\u036f]/g, "") // remove accents
+                      .replace(/[^a-zA-Z0-9]/g, "_"); // remove characters
+                    const folderName = `${p.id}_${cleanName}`;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setSelectedPatientId(p.id);
+                          setActiveFolder(null);
+                        }}
+                        className={`w-full text-left p-2 flex items-center justify-between rounded-lg text-xs transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'bg-slate-100 text-slate-900 font-bold border-l-2 border-teal-500 pl-3' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 min-w-0">
+                          <Folder className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-teal-600 fill-teal-600/10' : 'text-slate-400'}`} />
+                          <span className="truncate font-mono text-[10px]">{folderName}</span>
+                        </div>
+                        <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isSelected ? 'rotate-90' : ''}`} />
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="p-4 text-center text-[10px] text-slate-400">
+                    Nenhuma pasta de paciente cadastrada.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : (
-          /* General Category Directory Details Info on Left */
+          /* General directories info sidebar on left */
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
             <div>
               <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Módulo Sincronizado</span>
@@ -398,53 +614,123 @@ export default function FileManager() {
           </div>
         )}
 
-        {/* Directory details column on Right */}
-        <div className="md:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-6 min-h-[420px] flex flex-col justify-between">
+        {/* Directory grid explorer on Right */}
+        <div className="md:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-6 min-h-[450px] flex flex-col justify-between" id="fm-explorer-panel">
           {activeCategory === 'pacientes' ? (
             /* Patients Module Explorer */
-            !activePatient ? (
-              <div className="flex flex-col items-center justify-center text-center py-16 space-y-3.5 my-auto">
-                <div className="p-3 bg-slate-50 text-slate-400 rounded-full border border-slate-100">
-                  <Folder className="w-8 h-8" />
+            selectedPatientId === '' ? (
+              /* Root Pacientes folder containing all patient directory folders */
+              <div className="space-y-5">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs">Caminho do Diretório Principal</h3>
+                    <p className="text-xs text-slate-500 font-mono mt-1 bg-slate-50 p-2 border border-slate-150 rounded-lg select-all">
+                      {rootPath}\Pacientes
+                    </p>
+                  </div>
                 </div>
+
                 <div>
-                  <p className="text-xs font-semibold text-slate-700">Nenhum Paciente Selecionado</p>
-                  <p className="text-[11px] text-slate-400 max-w-xs mt-1 leading-normal">
-                    Selecione um paciente na lista lateral para explorar seu diretório local e gerenciar seus arquivos de RX, Gto's e prontuários.
-                  </p>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">Pastas de Pacientes (Atualizado com o Prontuário)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-1">
+                    {filteredPatients.length > 0 ? (
+                      filteredPatients.map(p => {
+                        const filesCount = files.filter(f => f.patientId === p.id).length;
+                        const cleanName = p.name
+                          .normalize("NFD")
+                          .replace(/[\u0300-\u036f]/g, "")
+                          .replace(/[^a-zA-Z0-9]/g, "_");
+                        const folderPath = `${p.id}_${cleanName}`;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => setSelectedPatientId(p.id)}
+                            className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-teal-50/10 rounded-xl text-left transition-all group cursor-pointer flex items-center justify-between"
+                          >
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg group-hover:scale-105 transition-transform shrink-0">
+                                <Folder className="w-5 h-5 fill-amber-500/10" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-700 truncate">{p.name}</p>
+                                <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">
+                                  📁 \{folderPath}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="inline-block bg-slate-100 text-slate-600 font-mono text-[9px] px-2 py-1 rounded-full font-bold">
+                                {filesCount} arq
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="p-12 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 col-span-2">
+                        <Folder className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        Nenhuma pasta de paciente correspondente à busca.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-start space-x-2.5">
+                  <Info className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                  <div className="text-[11px] text-slate-500 leading-normal">
+                    <p className="font-bold text-slate-700">Comportamento de Criação de Pastas:</p>
+                    <p className="mt-1">
+                      A pasta vazia do seu computador funciona como o diretório raiz. Sempre que um paciente é criado no ClinDent, uma pasta dedicada com o padrão <span className="font-mono bg-white px-1 border rounded text-slate-600 font-bold">ID_NOME_DO_PACIENTE</span> é disponibilizada imediatamente acima, permitindo isolar radiografias, contratos e receitas.
+                    </p>
+                  </div>
                 </div>
               </div>
             ) : !activeFolder ? (
-              /* Folder selection inside patient directory */
+              /* Selected patient's direct subfolders structure */
               <div className="space-y-5">
                 <div className="border-b border-slate-100 pb-3">
-                  <h3 className="font-bold text-slate-800 text-xs">Caminho de Diretório Clínico do Paciente</h3>
-                  <p className="text-xs text-slate-500 font-mono mt-1 bg-slate-50 p-2 border border-slate-150 rounded-lg">
-                    {getPatientPath(activePatient.id, activePatient.name)}
+                  <div className="flex items-center justify-between">
+                    <button 
+                      onClick={() => {
+                        setSelectedPatientId('');
+                        setActiveFolder(null);
+                      }}
+                      className="flex items-center space-x-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>Voltar para pasta principal Pacientes</span>
+                    </button>
+                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-500">
+                      ID do Paciente: {activePatient?.id}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-xs mt-3">Diretório Local do Paciente</h3>
+                  <p className="text-[11px] text-slate-500 font-mono mt-1 bg-slate-50 p-2 border border-slate-150 rounded-lg select-all">
+                    {activePatient ? getPatientPath(activePatient.id, activePatient.name) : ''}
                   </p>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">Sub-Pastas de Prontuário</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">Subpastas Clínicas Obrigatórias</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {FOLDERS_CONFIG.map((folder) => {
-                      const filesInFolder = patientFiles.filter(
+                      const filesInFolder = files.filter(
                         f => f.patientId === selectedPatientId && f.folderName === folder.id
                       );
                       return (
                         <button 
                           key={folder.id}
                           onClick={() => setActiveFolder(folder.id)}
-                          className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-slate-50/50 rounded-xl text-left transition-all group"
+                          className="p-4 border border-slate-200 hover:border-teal-300 hover:bg-slate-50/50 rounded-xl text-left transition-all group cursor-pointer"
                         >
                           <div className="flex items-center space-x-3">
                             <div className={`p-2 rounded-lg ${folder.iconColor} group-hover:scale-105 transition-transform`}>
-                              <Folder className="w-5 h-5" />
+                              <Folder className="w-5 h-5 fill-current/10" />
                             </div>
                             <div>
                               <p className="text-xs font-bold text-slate-700">{folder.label}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">
-                                {filesInFolder.length} arquivos salvos
+                                {filesInFolder.length} arquivos salvos nesta pasta
                               </p>
                             </div>
                           </div>
@@ -454,60 +740,55 @@ export default function FileManager() {
                   </div>
                 </div>
 
-                {/* Informative helper box */}
-                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-start space-x-2.5">
-                  <Info className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                  <div className="text-[11px] text-slate-500 leading-normal">
-                    <p className="font-bold text-slate-700">Organização Recomendada de Pastas:</p>
+                {/* Patient medical dashboard sync box */}
+                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-start space-x-2.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="text-[11px] text-slate-700 leading-normal">
+                    <p className="font-bold text-emerald-800">Sincronização Ativa de Prontuários Gerais:</p>
                     <p className="mt-1">
-                      Para sincronizar com as pastas locais de seu computador, o ClinDent lê e gerencia automaticamente as seguintes subpastas criadas na pasta física do paciente:
+                      A subpasta <span className="font-bold text-slate-800">Gerais</span> armazena relatórios consolidados em formato JSON com todas as evoluções clínicas, odontograma, anamnese assinada e orçamentos do paciente. Estes arquivos são exportados e atualizados pelo site automaticamente a cada alteração.
                     </p>
-                    <ul className="list-disc list-inside mt-1.5 space-y-1 font-mono text-[10px] text-slate-600">
-                      {FOLDERS_CONFIG.map(folder => (
-                        <li key={folder.id}>
-                          ..\Pacientes\ID_Nome_Do_Paciente\<span className="font-bold text-slate-800">{folder.folderPathName}</span> ({folder.label})
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 </div>
               </div>
             ) : (
-              /* Active subfolder file explorer list */
+              /* Active subfolder content file list view */
               <div className="space-y-5 h-full flex flex-col justify-between">
                 <div>
                   <button 
                     onClick={() => setActiveFolder(null)}
-                    className="flex items-center space-x-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 mb-3"
+                    className="flex items-center space-x-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 mb-3 cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    <span>Voltar para as subpastas</span>
+                    <span>Voltar para as subpastas de {activePatient?.name}</span>
                   </button>
 
                   <div className="border-b border-slate-150 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold text-slate-800 text-xs">
-                        Paciente: {activePatient.name} &gt; Pasta <span className="text-teal-600">"{FOLDERS_CONFIG.find(f => f.id === activeFolder)?.label || activeFolder}"</span>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-slate-800 text-xs truncate">
+                        Pasta: <span className="text-teal-600">"{FOLDERS_CONFIG.find(f => f.id === activeFolder)?.label || activeFolder}"</span>
                       </h3>
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        Diretório Físico: {getPatientFolderPath(activePatient.id, activePatient.name, activeFolder)}
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate select-all">
+                        Caminho Local: {activePatient ? getPatientFolderPath(activePatient.id, activePatient.name, activeFolder) : ''}
                       </p>
                     </div>
 
-                    <label className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold px-3.5 py-2 rounded-lg text-xs cursor-pointer flex items-center space-x-1.5 shadow-sm transition-colors shrink-0">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Importar do Computador</span>
-                      <input 
-                        type="file" 
-                        onChange={handleFileUpload} 
-                        className="hidden" 
-                      />
-                    </label>
+                    {activeFolder !== 'Gerais' && (
+                      <label className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold px-3.5 py-2 rounded-lg text-xs cursor-pointer flex items-center space-x-1.5 shadow-sm transition-colors shrink-0">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Importar Arquivo</span>
+                        <input 
+                          type="file" 
+                          onChange={handleFileUpload} 
+                          className="hidden" 
+                        />
+                      </label>
+                    )}
                   </div>
 
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-1">
-                    {patientFiles.filter(f => f.patientId === selectedPatientId && f.folderName === activeFolder).length > 0 ? (
-                      patientFiles
+                    {files.filter(f => f.patientId === selectedPatientId && f.folderName === activeFolder).length > 0 ? (
+                      files
                         .filter(f => f.patientId === selectedPatientId && f.folderName === activeFolder)
                         .map(file => {
                           const isImage = file.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i);
@@ -517,7 +798,7 @@ export default function FileManager() {
                               className="p-3 border border-slate-150 rounded-xl bg-slate-50/50 flex items-center justify-between hover:bg-slate-50 transition-colors"
                             >
                               <div className="flex items-center space-x-2.5 min-w-0">
-                                <div className={`p-1.5 rounded-lg ${isImage ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-150 text-slate-500'}`}>
+                                <div className={`p-1.5 rounded-lg ${isImage ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
                                   {isImage ? <ImageIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                                 </div>
                                 <div className="min-w-0">
@@ -526,12 +807,23 @@ export default function FileManager() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center space-x-2 shrink-0">
+                              <div className="flex items-center space-x-1.5 shrink-0">
+                                {file.isVirtual && (
+                                  <button
+                                    onClick={() => setPreviewVirtualFile(file)}
+                                    className="p-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center space-x-1"
+                                    title="Visualizar ficha técnica formatada"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Visualizar</span>
+                                  </button>
+                                )}
+
                                 {file.fileDataUrl ? (
                                   <a 
                                     href={file.fileDataUrl} 
                                     download={file.fileName}
-                                    className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors"
+                                    className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors cursor-pointer"
                                     title="Baixar arquivo para o computador"
                                   >
                                     <Download className="w-3.5 h-3.5" />
@@ -539,20 +831,22 @@ export default function FileManager() {
                                 ) : (
                                   <button 
                                     onClick={() => alert(`Simulando download de arquivo local do seu computador: ${file.fileName}`)}
-                                    className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors"
+                                    className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors cursor-pointer"
                                     title="Baixar arquivo local"
                                   >
                                     <Download className="w-3.5 h-3.5" />
                                   </button>
                                 )}
 
-                                <button 
-                                  onClick={() => handleDeleteFile(file.id, file.fileName)}
-                                  className="p-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-lg transition-colors"
-                                  title="Remover sincronização"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                {!file.isVirtual && (
+                                  <button 
+                                    onClick={() => handleDeleteFile(file.id, file.fileName)}
+                                    className="p-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-lg transition-colors cursor-pointer"
+                                    title="Remover sincronização"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );
@@ -566,16 +860,16 @@ export default function FileManager() {
                   </div>
                 </div>
 
-                {/* Windows Explorer instructions */}
+                {/* Physical directory script guide */}
                 <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl text-[11px] text-amber-800 leading-normal">
                   <p className="font-bold flex items-center space-x-1.5">
-                    <span>Como gerenciar na sua máquina local:</span>
+                    <span>Espelhamento com a Máquina Clínica:</span>
                   </p>
                   <p className="mt-1">
-                    Abra o Windows Explorer e crie esta estrutura física de pastas. O ClinDent fará a leitura e resgate automático ao navegar por este painel:
+                    Crie esta estrutura física de subpastas no seu computador para sincronizar suas fotos com o ClinDent:
                   </p>
                   <div className="mt-2 p-2 bg-white/75 font-mono text-[9px] rounded border border-amber-100 select-all text-slate-700">
-                    mkdir "{getPatientFolderPath(activePatient.id, activePatient.name, activeFolder)}"
+                    mkdir "{activePatient ? getPatientFolderPath(activePatient.id, activePatient.name, activeFolder) : ''}"
                   </div>
                 </div>
               </div>
@@ -631,7 +925,7 @@ export default function FileManager() {
                                 <a 
                                   href={file.fileDataUrl} 
                                   download={file.fileName}
-                                  className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors"
+                                  className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors cursor-pointer"
                                   title="Baixar para o computador"
                                 >
                                   <Download className="w-3.5 h-3.5" />
@@ -639,7 +933,7 @@ export default function FileManager() {
                               ) : (
                                 <button 
                                   onClick={() => alert(`Simulando download do arquivo de banco de dados do ClinDent: ${file.fileName}`)}
-                                  className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors"
+                                  className="p-1.5 bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-500 rounded-lg transition-colors cursor-pointer"
                                   title="Baixar arquivo de dados"
                                 >
                                   <Download className="w-3.5 h-3.5" />
@@ -648,7 +942,7 @@ export default function FileManager() {
 
                               <button 
                                 onClick={() => handleDeleteFile(file.id, file.fileName)}
-                                className="p-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-lg transition-colors"
+                                className="p-1.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-lg transition-colors cursor-pointer"
                                 title="Deletar permanentemente"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -680,6 +974,281 @@ export default function FileManager() {
           )}
         </div>
       </div>
+
+      {/* Visual File Viewer modal / drawer */}
+      {previewVirtualFile && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" id="preview-modal">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-150 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-teal-600" />
+                <span className="font-bold text-slate-800 text-xs font-mono">{previewVirtualFile.fileName}</span>
+              </div>
+              <button 
+                onClick={() => setPreviewVirtualFile(null)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold bg-slate-100 hover:bg-slate-200 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+              {(() => {
+                try {
+                  const data = JSON.parse(previewVirtualFile.content || '{}');
+                  
+                  // Render format according to the file type
+                  if (previewVirtualFile.fileName === 'cadastro_pessoal.json') {
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-teal-50/50 border border-teal-100 p-3 rounded-xl flex items-center space-x-2.5">
+                          <Users className="w-4 h-4 text-teal-600" />
+                          <span className="text-xs font-bold text-teal-950">Dados Cadastrais Oficiais do Paciente</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Nome Completo</span>
+                            <span className="font-semibold text-slate-800 text-xs">{data.nome}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Nascimento</span>
+                            <span className="font-semibold text-slate-800 text-xs">{data.data_nascimento}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">CPF</span>
+                            <span className="font-semibold text-slate-800 text-xs font-mono">{data.cpf}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Telefone</span>
+                            <span className="font-semibold text-slate-800 text-xs font-mono">{data.telefone}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Convênio</span>
+                            <span className="font-semibold text-slate-800 text-xs">{data.convenio}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Endereço</span>
+                            <span className="font-semibold text-slate-800 text-xs truncate block" title={data.endereco}>{data.endereco}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Cadastro no Sistema</span>
+                            <span className="font-semibold text-slate-850 text-[11px] font-mono">{data.data_cadastro}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Status Clínico</span>
+                            <span className="inline-block px-2 py-0.5 mt-1 bg-teal-100 text-teal-800 rounded font-bold text-[10px] uppercase">
+                              {data.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (previewVirtualFile.fileName === 'ficha_anamnese.json') {
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-amber-50/50 border border-amber-100 p-3 rounded-xl flex items-center space-x-2.5">
+                          <ShieldCheck className="w-4 h-4 text-amber-600" />
+                          <span className="text-xs font-bold text-amber-950">Ficha Sanitária de Anamnese e Riscos</span>
+                        </div>
+                        <div className="space-y-3 text-xs">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg">
+                              <span className="text-slate-400 block text-[9px] uppercase font-bold">Doenças Pré-existentes</span>
+                              <span className="font-semibold text-slate-800 block mt-0.5">{data.doencas_pre_existentes}</span>
+                            </div>
+                            <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg">
+                              <span className="text-slate-400 block text-[9px] uppercase font-bold">Alergias Detectadas</span>
+                              <span className="font-semibold text-slate-800 block mt-0.5">{data.alergias}</span>
+                            </div>
+                          </div>
+
+                          <div className="p-3 border border-slate-100 rounded-lg space-y-2.5">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Problemas Cardíacos / Marcapasso:</span>
+                              <span className={`font-bold ${data.problemas_cardiacos === 'Sim' ? 'text-red-600' : 'text-slate-700'}`}>{data.problemas_cardiacos}</span>
+                            </div>
+                            <div className="flex justify-between border-t pt-2">
+                              <span className="text-slate-600">Gestante no Momento:</span>
+                              <span className="font-bold text-slate-700">{data.gestante}</span>
+                            </div>
+                            <div className="flex justify-between border-t pt-2">
+                              <span className="text-slate-600">Usa Anticoagulantes:</span>
+                              <span className={`font-bold ${data.uso_anticoagulante === 'Sim' ? 'text-rose-600' : 'text-slate-700'}`}>{data.uso_anticoagulante}</span>
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 bg-slate-55 border border-slate-150 rounded-lg">
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">Observações de Prontuário</span>
+                            <span className="text-slate-700 block mt-0.5 text-[11px] italic">{data.observacoes_adicionais}</span>
+                          </div>
+
+                          <div className="pt-3 border-t flex justify-between text-[11px]">
+                            <span className="text-slate-400">Assinado em: <span className="font-mono text-slate-700">{data.data_assinatura}</span></span>
+                            <span className="text-emerald-600 font-bold">{data.assinatura_paciente}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (previewVirtualFile.fileName === 'odontograma_prontuario.json') {
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-xl flex items-center space-x-2.5">
+                          <Info className="w-4 h-4 text-blue-600" />
+                          <span className="text-xs font-bold text-blue-950">Mapeamento Anatômico do Odontograma</span>
+                        </div>
+                        <div className="space-y-2.5">
+                          {Array.isArray(data) && data.map((t: any, idx: number) => (
+                            <div key={idx} className="p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs space-y-1.5">
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold text-slate-800 text-xs">Dente {t.dente}</span>
+                                <span className="text-slate-400 font-mono text-[10px]">Alterado</span>
+                              </div>
+                              {t.faces_alteradas && t.faces_alteradas.length > 0 && (
+                                <div>
+                                  <span className="text-slate-400 text-[10px] block uppercase font-bold">Regiões Alteradas</span>
+                                  <span className="text-slate-700 font-mono text-[10px]">{t.faces_alteradas.join(' | ')}</span>
+                                </div>
+                              )}
+                              {t.anomalias_detectadas && t.anomalias_detectadas.length > 0 && (
+                                <div>
+                                  <span className="text-slate-400 text-[10px] block uppercase font-bold">Anomalias Clínicas</span>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {t.anomalias_detectadas.map((a: string, aidx: number) => (
+                                      <span key={aidx} className="bg-red-50 text-red-700 border border-red-100 font-bold px-1.5 py-0.5 rounded text-[9px] uppercase font-mono">
+                                        {a}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {t.observacoes && (
+                                <div>
+                                  <span className="text-slate-400 text-[10px] block uppercase font-bold">Notas de Tratamento</span>
+                                  <p className="text-slate-650 italic mt-0.5 font-sans leading-normal">{t.observacoes}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (previewVirtualFile.fileName === 'evolucoes_clinicas.json') {
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-xl flex items-center space-x-2.5">
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold text-emerald-950">Evolução de Tratamentos Realizados</span>
+                        </div>
+                        <div className="border-l-2 border-slate-200 pl-4 space-y-4 py-1">
+                          {Array.isArray(data) && data.map((evo: any, idx: number) => (
+                            <div key={idx} className="relative space-y-1.5 text-xs">
+                              {/* Bullet node */}
+                              <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white ring-2 ring-slate-100" />
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-800 text-xs">{evo.procedimento}</span>
+                                <span className="text-slate-400 font-mono text-[10px] bg-slate-100 px-2 py-0.5 rounded">{evo.data}</span>
+                              </div>
+                              <p className="text-slate-600 italic leading-relaxed">{evo.observacoes_clinicas}</p>
+                              <div className="flex justify-between items-center text-[10px] text-slate-400 pt-0.5">
+                                <span>Dentista: <span className="font-semibold text-slate-600">{evo.dentista}</span> ({evo.cro})</span>
+                                {evo.materiais_utilizados && evo.materiais_utilizados.length > 0 && (
+                                  <span className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">Insumos: {evo.materiais_utilizados.join(', ')}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (previewVirtualFile.fileName === 'orcamentos_e_planos.json') {
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-purple-50/50 border border-purple-100 p-3 rounded-xl flex items-center space-x-2.5">
+                          <DollarSign className="w-4 h-4 text-purple-600" />
+                          <span className="text-xs font-bold text-purple-950">Orçamentos e Planos de Custos</span>
+                        </div>
+                        <div className="space-y-3">
+                          {Array.isArray(data) && data.map((b: any, idx: number) => (
+                            <div key={idx} className="p-4 border border-slate-200 rounded-xl bg-slate-50/30 text-xs space-y-2.5">
+                              <div className="flex justify-between items-center border-b pb-2">
+                                <span className="font-bold text-slate-800 text-sm">{b.titulo}</span>
+                                <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase ${b.status.includes('Aprovado') ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                  {b.status}
+                                </span>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <span className="text-slate-400 text-[9px] block uppercase font-bold">Procedimentos Planejados</span>
+                                <div className="divide-y divide-slate-100 max-h-36 overflow-y-auto">
+                                  {b.procedimentos_incluidos.map((p: any, pidx: number) => (
+                                    <div key={pidx} className="flex justify-between py-1.5">
+                                      <span className="text-slate-700">{p.procedimento} <span className="font-mono text-[9px] text-slate-400">({p.dente})</span></span>
+                                      <span className="font-bold text-slate-800">R$ {p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t flex justify-between items-center text-xs font-semibold">
+                                <div className="text-slate-400">
+                                  <span>Plano: <span className="text-slate-700">{b.parcelas}x no {b.metodo_pagamento}</span></span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-slate-400 block text-[9px] uppercase">Valor Total</span>
+                                  <span className="text-teal-700 font-bold text-sm">R$ {b.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <pre className="bg-slate-50 border p-4 rounded-xl font-mono text-[10px] overflow-x-auto text-slate-700 leading-normal">
+                      {previewVirtualFile.content}
+                    </pre>
+                  );
+                } catch (e) {
+                  return (
+                    <pre className="bg-slate-50 border p-4 rounded-xl font-mono text-[10px] overflow-x-auto text-slate-700">
+                      {previewVirtualFile.content}
+                    </pre>
+                  );
+                }
+              })()}
+            </div>
+
+            <div className="p-4 border-t bg-slate-50 flex justify-end space-x-2">
+              {previewVirtualFile.fileDataUrl && (
+                <a 
+                  href={previewVirtualFile.fileDataUrl} 
+                  download={previewVirtualFile.fileName}
+                  className="px-4 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-lg text-xs transition-colors cursor-pointer flex items-center space-x-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Baixar Arquivo Oficial .json</span>
+                </a>
+              )}
+              <button 
+                onClick={() => setPreviewVirtualFile(null)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+              >
+                Fechar Visualização
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
