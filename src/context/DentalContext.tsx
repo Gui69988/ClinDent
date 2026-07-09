@@ -46,8 +46,9 @@ interface DentalContextType {
   setCurrentUnit: (unit: string) => void;
 
   // Actions
-  addPatient: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => string;
+  addPatient: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updatePatient: (id: string, patient: Partial<Patient>) => void;
+  deletePatient: (id: string) => void;
   updateAnamnese: (patientId: string, anamnese: Partial<Anamnese>) => void;
   updateOdontogram: (patientId: string, toothNumber: number, face: string, state: ToothFaceState, isAnomaly?: boolean, anomalyType?: any, notes?: string) => void;
   resetOdontogram: (patientId: string) => void;
@@ -844,7 +845,7 @@ export const DentalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Actions implementation
-  const addPatient = (patData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addPatient = async (patData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
     const id = 'p_' + Date.now();
     const timestamp = new Date().toISOString();
     const newPatient: Patient = {
@@ -853,6 +854,25 @@ export const DentalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: timestamp,
       updatedAt: timestamp
     };
+    
+    // Attempt to create local folder
+    const rootPath = localStorage.getItem('clindent_local_root_path') || 'C:\\ClinDent\\Armazenamento_Geral';
+    const safeName = patData.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // remove accents
+      .replace(/[^a-zA-Z0-9]/g, "_");
+    const patientPath = `${rootPath}\\Pacientes\\${id}_${safeName}`;
+
+    try {
+      await fetch('/api/create-patient-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: patientPath })
+      });
+    } catch (e) {
+      console.error("Could not create local directory:", e);
+    }
+
     const updated = [newPatient, ...patients];
     saveAndSetPatients(updated);
 
@@ -890,6 +910,33 @@ export const DentalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       saveAndSetPatients(updatedPatients);
       logAction('update_patient', `Atualizado cadastro do paciente: ${updatedPatients[patientIndex].name}`);
     }
+  };
+
+  const deletePatient = async (id: string) => {
+    const patientToDelete = patients.find(p => p.id === id);
+    if (!patientToDelete) return;
+
+    // Remove folder
+    const rootPath = localStorage.getItem('clindent_local_root_path') || 'C:\\ClinDent\\Armazenamento_Geral';
+    const safeName = patientToDelete.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // remove accents
+      .replace(/[^a-zA-Z0-9]/g, "_");
+    const patientPath = `${rootPath}\\Pacientes\\${id}_${safeName}`;
+
+    try {
+      await fetch('/api/fs/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: patientPath })
+      });
+    } catch (e) {
+      console.error("Could not delete local directory:", e);
+    }
+
+    const updated = patients.filter(p => p.id !== id);
+    saveAndSetPatients(updated);
+    logAction('delete_patient', `Paciente removido: ${patientToDelete.name}`);
   };
 
   const updateAnamnese = (patientId: string, updatedFields: Partial<Anamnese>) => {
@@ -1307,6 +1354,7 @@ export const DentalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentUnit,
         addPatient,
         updatePatient,
+        deletePatient,
         updateAnamnese,
         updateOdontogram,
         resetOdontogram,

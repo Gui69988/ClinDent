@@ -1,0 +1,77 @@
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { createServer } from 'vite';
+
+const app = express();
+app.use(express.json());
+
+// API endpoint to create directory
+app.post('/api/create-patient-folder', (req, res) => {
+  const { path: folderPath } = req.body;
+  if (!folderPath) return res.status(400).json({ error: 'Path required' });
+
+  try {
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+      // Create mandatory subfolders
+      const subfolders = ['Contratos', 'Exames', 'Gerais', "Gto's", 'Radiografias'];
+      subfolders.forEach(sub => {
+        const subPath = path.join(folderPath, sub);
+        if (!fs.existsSync(subPath)) fs.mkdirSync(subPath, { recursive: true });
+      });
+      res.json({ success: true });
+    } else {
+      res.json({ success: true, message: 'Already exists' });
+    }
+  } catch (err) {
+    console.error('Error creating folder:', err);
+    res.status(500).json({ error: 'Failed to create folder' });
+  }
+});
+
+app.post('/api/fs/delete', (req, res) => {
+  const { path: targetPath } = req.body;
+  if (!targetPath) return res.status(400).json({ error: 'Path required' });
+  try {
+    if (fs.existsSync(targetPath)) {
+      fs.rmSync(targetPath, { recursive: true, force: true });
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Path not found' });
+    }
+  } catch (err) {
+    console.error('Error deleting:', err);
+    res.status(500).json({ error: 'Failed to delete' });
+  }
+});
+
+app.post('/api/fs/rename', (req, res) => {
+  const { oldPath, newPath } = req.body;
+  if (!oldPath || !newPath) return res.status(400).json({ error: 'Paths required' });
+  try {
+    fs.renameSync(oldPath, newPath);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error renaming:', err);
+    res.status(500).json({ error: 'Failed to rename' });
+  }
+});
+
+// Vite middleware (only in dev)
+async function startServer() {
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createServer({
+      server: { middlewareMode: true },
+      appType: 'spa'
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static('dist'));
+    app.get('*', (req, res) => res.sendFile(path.resolve('dist', 'index.html')));
+  }
+
+  app.listen(3000, '0.0.0.0', () => console.log('Server running on 3000'));
+}
+
+startServer();
