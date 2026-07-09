@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 export default function Header({ onSearchSelect }: HeaderProps) {
-  const { currentUnit, units, setCurrentUnit, patients, currentUser, appointments } = useDental();
+  const { patients, currentUser, appointments } = useDental();
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
 

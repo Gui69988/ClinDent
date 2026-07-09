@@ -8,6 +8,9 @@ const app = express();
 app.use(express.json());
 
 const upload = multer({ dest: 'uploads/' });
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+}
 
 // API endpoint to create directory
 app.post('/api/create-patient-folder', (req, res) => {
@@ -36,9 +39,15 @@ app.post('/api/create-patient-folder', (req, res) => {
 // API endpoint to upload file
 app.post('/api/fs/upload', upload.single('file'), (req: any, res: any) => {
   const { path: targetPath } = req.body;
+  console.log('Upload request:', { targetPath, file: req.file ? req.file.originalname : 'no file' });
   if (!targetPath || !req.file) return res.status(400).json({ error: 'Path and file required' });
 
   try {
+    const dir = path.dirname(targetPath);
+    if (!fs.existsSync(dir)) {
+      console.log('Creating directory:', dir);
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.copyFileSync(req.file.path, targetPath);
     fs.unlinkSync(req.file.path); // remove temp file
     res.json({ success: true });
@@ -50,12 +59,15 @@ app.post('/api/fs/upload', upload.single('file'), (req: any, res: any) => {
 
 app.post('/api/fs/delete', (req, res) => {
   const { path: targetPath } = req.body;
+  console.log('Delete request:', { targetPath });
   if (!targetPath) return res.status(400).json({ error: 'Path required' });
   try {
     if (fs.existsSync(targetPath)) {
+      console.log('Deleting path:', targetPath);
       fs.rmSync(targetPath, { recursive: true, force: true });
       res.json({ success: true });
     } else {
+      console.log('Path not found:', targetPath);
       res.status(404).json({ error: 'Path not found' });
     }
   } catch (err) {

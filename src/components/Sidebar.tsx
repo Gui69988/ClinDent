@@ -17,8 +17,7 @@ import {
   EyeOff,
   Briefcase,
   UserCheck,
-  Folder,
-  Database
+  Folder
 } from 'lucide-react';
 import { useDental } from '../context/DentalContext';
 
