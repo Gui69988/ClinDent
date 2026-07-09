@@ -104,7 +104,7 @@ export default function FileManager() {
     if ('showDirectoryPicker' in window) {
       try {
         const handle = await (window as any).showDirectoryPicker();
-
+        
         const customPath = `C:\\ClinDent\\${handle.name}`;
         setRootPath(customPath);
         setIsLinked(true);
@@ -113,27 +113,12 @@ export default function FileManager() {
         logAction('link_local_folder', `Pasta local vinculada com sucesso: ${customPath}`);
         alert(`Sucesso! A pasta "${handle.name}" foi vinculada!\n\nToda a base de dados do site (Agenda, Pacientes, Caixa, Estoques e Logs) será salva de forma estruturada em subpastas em:\n${customPath}`);
       } catch (err) {
-        console.log("Selecionador de diretório cancelado ou não permitido no iFrame.");
-        fallbackLink();
+        console.error("Erro ao selecionar diretório:", err);
+        alert("Não foi possível acessar a pasta selecionada. O navegador pode ter cancelado a operação ou a pasta não possui as permissões necessárias.");
       }
     } else {
-      fallbackLink();
+      alert("Seu navegador atual não suporta a funcionalidade de acesso direto ao sistema de arquivos (necessário o uso de navegadores modernos como Chrome ou Edge).");
     }
-  };
-
-  const fallbackLink = () => {
-    const defaultWinPath = 'C:\\ClinDent\\Clinica_Dados_Gerais';
-    const confirmChoice = confirm(
-      `Vincular pasta local para salvamento integral?\n\nO sistema irá simular o vínculo com uma pasta vazia e criar a árvore de diretórios do site em:\n${defaultWinPath}\n\nIsso sincronizará dados de Pacientes, Agenda, Estoque, Financeiro e Auditoria.`
-    );
-    if (!confirmChoice) return;
-
-    setRootPath(defaultWinPath);
-    setIsLinked(true);
-    localStorage.setItem('clindent_local_root_path', defaultWinPath);
-    localStorage.setItem('clindent_local_root_linked', 'true');
-    logAction('link_local_folder_fallback', `Simulado vínculo com pasta geral vazia em: ${defaultWinPath}`);
-    alert(`Vínculo de Armazenamento Geral Ativo!\n\nCaminho de rede local simulado: ${defaultWinPath}\n\nToda a estrutura de arquivos e dados do ClinDent agora será salva nessa pasta.`);
   };
 
   const handleUnlink = () => {
