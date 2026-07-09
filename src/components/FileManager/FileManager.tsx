@@ -104,26 +104,14 @@ export default function FileManager() {
     if ('showDirectoryPicker' in window) {
       try {
         const handle = await (window as any).showDirectoryPicker();
-        
-        // Read directory entries to verify it is empty
-        let isEmpty = true;
-        for await (const entry of handle.values()) {
-          isEmpty = false;
-          break;
-        }
-
-        if (!isEmpty) {
-          alert(`Atenção: A pasta "${handle.name}" selecionada NÃO ESTÁ VAZIA!\n\nPor segurança e para evitar misturar arquivos antigos, selecione ou crie uma pasta totalmente vazia no computador. O ClinDent gerará as subpastas necessárias nela (\Pacientes, \Agenda, \Financeiro, \Estoque, \Auditoria) para salvar todas as informações do site.`);
-          return;
-        }
 
         const customPath = `C:\\ClinDent\\${handle.name}`;
         setRootPath(customPath);
         setIsLinked(true);
         localStorage.setItem('clindent_local_root_path', customPath);
         localStorage.setItem('clindent_local_root_linked', 'true');
-        logAction('link_local_folder', `Pasta local vazia vinculada com sucesso: ${customPath}`);
-        alert(`Sucesso! A pasta "${handle.name}" (Vazia) foi vinculada!\n\nToda a base de dados do site (Agenda, Pacientes, Caixa, Estoques e Logs) será salva de forma estruturada em subpastas em:\n${customPath}`);
+        logAction('link_local_folder', `Pasta local vinculada com sucesso: ${customPath}`);
+        alert(`Sucesso! A pasta "${handle.name}" foi vinculada!\n\nToda a base de dados do site (Agenda, Pacientes, Caixa, Estoques e Logs) será salva de forma estruturada em subpastas em:\n${customPath}`);
       } catch (err) {
         console.log("Selecionador de diretório cancelado ou não permitido no iFrame.");
         fallbackLink();
