@@ -137,10 +137,23 @@ export default function PatientList({ onPatientSelect }: PatientListProps) {
 
   const handleCreatePatient = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      alert("O nome do paciente é obrigatório!");
+      return;
+    }
+    if (!cpf.trim() && !rg.trim()) {
+      alert("É obrigatório preencher pelo menos um número de documento: CPF ou RG!");
+      return;
+    }
+    if (!birthDate) {
+      alert("A data de nascimento é obrigatória!");
+      return;
+    }
+
     const payload = {
       name,
-      cpf,
-      rg,
+      cpf: cpf.trim(),
+      rg: rg.trim(),
       birthDate,
       gender,
       maritalStatus: marital,
@@ -424,30 +437,30 @@ export default function PatientList({ onPatientSelect }: PatientListProps) {
               
               {/* Section 1: Cadastro basico */}
               <div>
-                <span className="text-[10px] uppercase font-bold text-teal-500 tracking-wider block mb-3 border-b pb-1">1. Dados Cadastrais</span>
+                <span className="text-[10px] uppercase font-bold text-teal-500 tracking-wider block mb-3 border-b pb-1">1. Dados Cadastrais (Campos Obrigatórios *)</span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">Nome Completo</label>
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2" placeholder="Ex: Maria de Souza" />
+                    <label className="block text-slate-600 font-medium mb-1">Nome Completo *</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full border border-teal-200/60 rounded-lg p-2 focus:ring-1 focus:ring-teal-500" placeholder="Ex: Maria de Souza" />
                   </div>
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">E-mail</label>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2" placeholder="maria@gmail.com" />
+                    <label className="block text-slate-600 font-medium mb-1">E-mail (Opcional)</label>
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2" placeholder="maria@gmail.com" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mt-3">
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">CPF</label>
-                    <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2 font-mono" placeholder="123.456.789-00" />
+                    <label className="block text-slate-600 font-medium mb-1">CPF (Mín. CPF ou RG) *</label>
+                    <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)} className="w-full border border-teal-200/60 rounded-lg p-2 font-mono focus:ring-1 focus:ring-teal-500" placeholder="123.456.789-00" />
                   </div>
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">RG</label>
-                    <input type="text" value={rg} onChange={(e) => setRg(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2 font-mono" placeholder="12.345.678-9" />
+                    <label className="block text-slate-600 font-medium mb-1">RG (Mín. CPF ou RG) *</label>
+                    <input type="text" value={rg} onChange={(e) => setRg(e.target.value)} className="w-full border border-teal-200/60 rounded-lg p-2 font-mono focus:ring-1 focus:ring-teal-500" placeholder="12.345.678-9" />
                   </div>
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">Nascimento</label>
-                    <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2" />
+                    <label className="block text-slate-600 font-medium mb-1">Nascimento *</label>
+                    <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required className="w-full border border-teal-200/60 rounded-lg p-2 focus:ring-1 focus:ring-teal-500" />
                   </div>
                 </div>
 
@@ -462,7 +475,7 @@ export default function PatientList({ onPatientSelect }: PatientListProps) {
                   </div>
                   <div>
                     <label className="block text-slate-600 font-medium mb-1">Celular / WhatsApp</label>
-                    <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2" placeholder="(11) 99111-2222" />
+                    <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2" placeholder="(11) 99111-2222" />
                   </div>
                   <div>
                     <label className="block text-slate-600 font-medium mb-1">Profissão</label>
@@ -473,7 +486,7 @@ export default function PatientList({ onPatientSelect }: PatientListProps) {
 
               {/* Section 2: Endereco com busca CEP */}
               <div className="pt-3">
-                <span className="text-[10px] uppercase font-bold text-teal-500 tracking-wider block mb-3 border-b pb-1">2. Endereço Comercial/Residencial</span>
+                <span className="text-[10px] uppercase font-bold text-teal-500 tracking-wider block mb-3 border-b pb-1">2. Endereço Comercial/Residencial (Opcional)</span>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-slate-600 font-medium mb-1">CEP (Busca de CEP)</label>
@@ -484,18 +497,18 @@ export default function PatientList({ onPatientSelect }: PatientListProps) {
                   </div>
                   <div className="col-span-2">
                     <label className="block text-slate-600 font-medium mb-1">Rua / Logradouro</label>
-                    <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2" placeholder="Avenida Paulista" />
+                    <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2" placeholder="Avenida Paulista" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-3 mt-3">
                   <div>
                     <label className="block text-slate-600 font-medium mb-1">Número</label>
-                    <input type="text" value={num} onChange={(e) => setNum(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2" placeholder="1000" />
+                    <input type="text" value={num} onChange={(e) => setNum(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2" placeholder="1000" />
                   </div>
                   <div>
                     <label className="block text-slate-600 font-medium mb-1">Bairro</label>
-                    <input type="text" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} required className="w-full border border-slate-200 rounded-lg p-2" placeholder="Bela Vista" />
+                    <input type="text" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2" placeholder="Bela Vista" />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-slate-600 font-medium mb-1">Complemento / Apto</label>
@@ -506,7 +519,7 @@ export default function PatientList({ onPatientSelect }: PatientListProps) {
 
               {/* Section 3: Financeiro / Convenio / Indicacao */}
               <div className="pt-3">
-                <span className="text-[10px] uppercase font-bold text-teal-500 tracking-wider block mb-3 border-b pb-1">3. Dados Administrativos</span>
+                <span className="text-[10px] uppercase font-bold text-teal-500 tracking-wider block mb-3 border-b pb-1">3. Dados Administrativos (Obrigatório *)</span>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-slate-600 font-medium mb-1">Origem (Indicação)</label>
@@ -518,12 +531,12 @@ export default function PatientList({ onPatientSelect }: PatientListProps) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-slate-600 font-medium mb-1">Convênio Odontológico</label>
-                    <select value={insurance} onChange={(e) => setInsurance(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2 bg-white">
+                    <label className="block text-slate-600 font-medium mb-1">Particular ou Convênio *</label>
+                    <select value={insurance} onChange={(e) => setInsurance(e.target.value)} className="w-full border border-teal-200/60 rounded-lg p-2 bg-white focus:ring-1 focus:ring-teal-500 font-semibold text-slate-800">
                       <option value="Particular">Particular / Sem Convênio</option>
-                      <option value="Amil Dental">Amil Dental</option>
-                      <option value="SulAmérica Odonto">SulAmérica Odonto</option>
-                      <option value="Bradesco Dental">Bradesco Dental</option>
+                      <option value="Amil Dental">Amil Dental (Convênio)</option>
+                      <option value="SulAmérica Odonto">SulAmérica Odonto (Convênio)</option>
+                      <option value="Bradesco Dental">Bradesco Dental (Convênio)</option>
                     </select>
                   </div>
                   <div>
