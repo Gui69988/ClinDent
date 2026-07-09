@@ -1,0 +1,6 @@
+{
+  "name": "ClinDent Gestão Odontológica",
+  "description": "Plataforma completa de gestão odontológica com prontuário eletrônico, odontograma interativo, agenda inteligente, controle financeiro, estoque e conformidade LGPD.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
